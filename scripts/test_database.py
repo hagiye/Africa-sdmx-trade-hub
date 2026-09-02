@@ -1,6 +1,13 @@
 """Verify that the configured PostgreSQL database accepts connections."""
 
+import sys
+from pathlib import Path
+
 from sqlalchemy import text
+
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
 from app.database.session import engine
 

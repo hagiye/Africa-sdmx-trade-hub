@@ -63,6 +63,7 @@ python -m pip install -r requirements.txt
 Copy-Item .env.example .env
 # Replace the placeholder passwords in .env before starting services.
 docker compose up -d
+python scripts/test_database.py
 alembic upgrade head
 python -m uvicorn app.main:app --reload
 ```
