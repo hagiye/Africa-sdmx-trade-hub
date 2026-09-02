@@ -2,14 +2,36 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
+from enum import StrEnum
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    Enum as SAEnum,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+    text,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
     pass
+
+
+class AreaType(StrEnum):
+    COUNTRY = "COUNTRY"
+    REGION = "REGION"
+    AGGREGATE = "AGGREGATE"
+    OTHER = "OTHER"
 
 
 class TimestampMixin:
@@ -19,6 +41,67 @@ class TimestampMixin:
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class GeoArea(TimestampMixin, Base):
+    __tablename__ = "geo_area"
+    __table_args__ = (
+        CheckConstraint(
+            "valid_to IS NULL OR valid_from IS NULL OR valid_to >= valid_from",
+            name="ck_geo_area_valid_period",
+        ),
+        CheckConstraint(
+            "area_type IN ('COUNTRY', 'REGION', 'AGGREGATE', 'OTHER')",
+            name="area_type",
+        ),
+        Index(
+            "ux_geo_area_iso2",
+            "iso2",
+            unique=True,
+            postgresql_where=text("iso2 IS NOT NULL"),
+            sqlite_where=text("iso2 IS NOT NULL"),
+        ),
+        Index(
+            "ux_geo_area_iso3",
+            "iso3",
+            unique=True,
+            postgresql_where=text("iso3 IS NOT NULL"),
+            sqlite_where=text("iso3 IS NOT NULL"),
+        ),
+        Index(
+            "ux_geo_area_numeric_code",
+            "numeric_code",
+            unique=True,
+            postgresql_where=text("numeric_code IS NOT NULL"),
+            sqlite_where=text("numeric_code IS NOT NULL"),
+        ),
+        Index("ix_geo_area_au_member", "au_member"),
+        Index("ix_geo_area_area_type", "area_type"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    iso2: Mapped[str | None] = mapped_column(String(2))
+    iso3: Mapped[str | None] = mapped_column(String(3))
+    numeric_code: Mapped[str | None] = mapped_column(String(3))
+    name_en: Mapped[str] = mapped_column(String(255), nullable=False)
+    name_fr: Mapped[str] = mapped_column(String(255), nullable=False)
+    area_type: Mapped[AreaType] = mapped_column(
+        SAEnum(
+            AreaType,
+            name="area_type",
+            native_enum=False,
+            create_constraint=False,
+            validate_strings=True,
+        ),
+        nullable=False,
+    )
+    au_member: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
+    region: Mapped[str | None] = mapped_column(String(128))
+    subregion: Mapped[str | None] = mapped_column(String(128))
+    valid_from: Mapped[date | None] = mapped_column(Date)
+    valid_to: Mapped[date | None] = mapped_column(Date)
 
 
 class Agency(TimestampMixin, Base):
