@@ -34,6 +34,13 @@ class AreaType(StrEnum):
     OTHER = "OTHER"
 
 
+class MappingStatus(StrEnum):
+    CONFIRMED = "CONFIRMED"
+    AUTO_MATCHED = "AUTO_MATCHED"
+    MANUAL = "MANUAL"
+    UNMAPPED = "UNMAPPED"
+
+
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -102,6 +109,58 @@ class GeoArea(TimestampMixin, Base):
     subregion: Mapped[str | None] = mapped_column(String(128))
     valid_from: Mapped[date | None] = mapped_column(Date)
     valid_to: Mapped[date | None] = mapped_column(Date)
+
+
+class SourceGeoMapping(TimestampMixin, Base):
+    __tablename__ = "source_geo_mapping"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_agency",
+            "source_system",
+            "source_codelist",
+            "source_code",
+            name="uq_source_geo_mapping_identity",
+        ),
+        CheckConstraint(
+            "valid_to IS NULL OR valid_from IS NULL OR valid_to >= valid_from",
+            name="ck_source_geo_mapping_valid_period",
+        ),
+        CheckConstraint(
+            "mapping_status IN "
+            "('CONFIRMED', 'AUTO_MATCHED', 'MANUAL', 'UNMAPPED')",
+            name="mapping_status",
+        ),
+        Index("ix_source_geo_mapping_source_code", "source_code"),
+        Index("ix_source_geo_mapping_source_system", "source_system"),
+        Index("ix_source_geo_mapping_geo_area_id", "geo_area_id"),
+        Index("ix_source_geo_mapping_mapping_status", "mapping_status"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_agency: Mapped[str] = mapped_column(String(128), nullable=False)
+    source_system: Mapped[str] = mapped_column(String(128), nullable=False)
+    source_codelist: Mapped[str] = mapped_column(String(255), nullable=False)
+    source_code: Mapped[str] = mapped_column(String(128), nullable=False)
+    geo_area_id: Mapped[int | None] = mapped_column(
+        ForeignKey("geo_area.id", ondelete="SET NULL")
+    )
+    mapping_status: Mapped[MappingStatus] = mapped_column(
+        SAEnum(
+            MappingStatus,
+            name="mapping_status",
+            native_enum=False,
+            create_constraint=False,
+            validate_strings=True,
+        ),
+        nullable=False,
+    )
+    source_label_en: Mapped[str | None] = mapped_column(String(512))
+    source_label_fr: Mapped[str | None] = mapped_column(String(512))
+    valid_from: Mapped[date | None] = mapped_column(Date)
+    valid_to: Mapped[date | None] = mapped_column(Date)
+    mapping_method: Mapped[str | None] = mapped_column(String(128))
+    notes: Mapped[str | None] = mapped_column(Text)
+    geo_area: Mapped[GeoArea | None] = relationship()
 
 
 class Agency(TimestampMixin, Base):

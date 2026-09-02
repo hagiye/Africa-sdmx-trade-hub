@@ -1,0 +1,45 @@
+{
+  "source_agency": "UNSD",
+  "source_system": "UN_COMTRADE",
+  "source_codelist": "UNSD:CL_AREA(1.0)",
+  "provider_reference": "https://comtradeapi.un.org/files/v1/app/reference/partnerAreas.json",
+  "verified_on": "2026-09-02",
+  "mappings": [
+    {
+      "source_code": "0",
+      "source_label_en": "World",
+      "structural_code": "W0",
+      "canonical_name_en": "World",
+      "canonical_name_fr": "Monde",
+      "canonical_iso2": null,
+      "canonical_iso3": null,
+      "area_type": "AGGREGATE",
+      "mapping_status": "CONFIRMED",
+      "mapping_method": "CONTROLLED_OVERRIDE"
+    },
+    {
+      "source_code": "404",
+      "source_label_en": "Kenya",
+      "structural_code": "KE",
+      "canonical_name_en": "Kenya",
+      "canonical_name_fr": "Kenya",
+      "canonical_iso2": "KE",
+      "canonical_iso3": "KEN",
+      "area_type": "COUNTRY",
+      "mapping_status": "CONFIRMED",
+      "mapping_method": "PROVIDER_ISO_CONFIRMED"
+    },
+    {
+      "source_code": "788",
+      "source_label_en": "Tunisia",
+      "structural_code": "TN",
+      "canonical_name_en": "Tunisia",
+      "canonical_name_fr": "Tunisie",
+      "canonical_iso2": "TN",
+      "canonical_iso3": "TUN",
+      "area_type": "COUNTRY",
+      "mapping_status": "CONFIRMED",
+      "mapping_method": "PROVIDER_ISO_CONFIRMED"
+    }
+  ]
+}
