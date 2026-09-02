@@ -1,0 +1,71 @@
+{
+  "agency": "UNSD",
+  "commodity": {
+    "classification_code": "S4",
+    "provider_query_code": "TOTAL",
+    "source_code": "SITC4_TOTAL",
+    "type_code": "C"
+  },
+  "dataflow": "IMTS_A",
+  "dataflow_version": "1.0",
+  "dsd": "IMTS",
+  "dsd_version": "1.2",
+  "fixtures": [
+    {
+      "content_type_missing": true,
+      "file": "un_comtrade_tunisia_imports_world_2022.json",
+      "file_bytes": 1410,
+      "http_status": 200,
+      "period": 2022,
+      "record_count": 1,
+      "response_bytes": 1003,
+      "sha256": "787a3334e0aa7721b0e0e1318c279307df1d7a46b5c0d3775f38c47b97fff4c2"
+    },
+    {
+      "content_type_missing": true,
+      "file": "un_comtrade_tunisia_imports_world_2023.json",
+      "file_bytes": 1408,
+      "http_status": 200,
+      "period": 2023,
+      "record_count": 1,
+      "response_bytes": 1001,
+      "sha256": "e1a6deffd4161c912b36751c61467eef904e75dacf54a0fb6ae7c476d1888c52"
+    },
+    {
+      "content_type_missing": true,
+      "file": "un_comtrade_tunisia_imports_world_2024.json",
+      "file_bytes": 1412,
+      "http_status": 200,
+      "period": 2024,
+      "record_count": 1,
+      "response_bytes": 1005,
+      "sha256": "c5ad1029711e4bdbfb04ec4e4d1a4a99b5c9a30df40f6b4140e46b7fea9db868"
+    }
+  ],
+  "format": "JSON",
+  "frequency": {
+    "code": "A",
+    "label": "Annual"
+  },
+  "partner": {
+    "area_type": "AGGREGATE",
+    "label": "World",
+    "provider_code": "0",
+    "source_code": "W0"
+  },
+  "periods": [
+    2022,
+    2023,
+    2024
+  ],
+  "provider": "UN Comtrade",
+  "reporter": {
+    "label": "Tunisia",
+    "provider_code": "788",
+    "source_code": "TN"
+  },
+  "trade_flow": {
+    "code": "M",
+    "label": "Imports"
+  }
+}

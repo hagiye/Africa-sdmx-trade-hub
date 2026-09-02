@@ -76,7 +76,7 @@ class LiveResult:
     preview: dict[str, Any]
 
 
-def _http_session() -> requests.Session:
+def create_http_session() -> requests.Session:
     retries = Retry(
         total=3,
         connect=3,
@@ -390,7 +390,7 @@ def main() -> int:
             f"Confirmed partner: {codes.partner} -> "
             f"{PROVIDER_PARTNER_CODE} ({PARTNERS_ENDPOINT})"
         )
-        with _http_session() as http:
+        with create_http_session() as http:
             queries = construct_queries(
                 codes, PROVIDER_REPORTER_CODE, PROVIDER_PARTNER_CODE
             )
