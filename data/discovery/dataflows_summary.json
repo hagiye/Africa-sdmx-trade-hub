@@ -1,0 +1,126 @@
+{
+  "source_url": "https://sdmxcentral.imf.org/sdmx/v2/structure/dataflow/UNSD/all/latest",
+  "checksum": "2aba4800ebf9b274039032f3df4815bb309fe68d4d4fa78b78461fa79cee2a9f",
+  "count": 7,
+  "dataflows": [
+    {
+      "agency": "UNSD",
+      "id": "IMTS_A",
+      "version": "1.0",
+      "labels": {
+        "en": "IMTS Annual"
+      },
+      "descriptions": {
+        "en": "Dataflow for IMTS annual data"
+      },
+      "structure": {
+        "agency": "UNSD",
+        "id": "IMTS",
+        "version": "1.2"
+      },
+      "trade_candidate": true
+    },
+    {
+      "agency": "UNSD",
+      "id": "IMTS_AGGEGATES_A",
+      "version": "1.0",
+      "labels": {
+        "en": "IMTS aggregates Annual"
+      },
+      "descriptions": {
+        "en": "For IMTS annual aggregated data"
+      },
+      "structure": {
+        "agency": "UNSD",
+        "id": "IMTS_AGGREGATES",
+        "version": "1.2"
+      },
+      "trade_candidate": true
+    },
+    {
+      "agency": "UNSD",
+      "id": "IMTS_AGGREGATES_A",
+      "version": "1.0",
+      "labels": {
+        "en": "IMTS aggregates Annual"
+      },
+      "descriptions": {
+        "en": "For IMTS annual aggregated data"
+      },
+      "structure": {
+        "agency": "UNSD",
+        "id": "IMTS_AGGREGATES",
+        "version": "1.2"
+      },
+      "trade_candidate": true
+    },
+    {
+      "agency": "UNSD",
+      "id": "IMTS_AGGREGATES_M",
+      "version": "1.0",
+      "labels": {
+        "en": "IMTS aggregates Monthly"
+      },
+      "descriptions": {
+        "en": "For IMTS Monthly aggregated data"
+      },
+      "structure": {
+        "agency": "UNSD",
+        "id": "IMTS_AGGREGATES",
+        "version": "1.2"
+      },
+      "trade_candidate": true
+    },
+    {
+      "agency": "UNSD",
+      "id": "IMTS_COMPACT_A",
+      "version": "1.0",
+      "labels": {
+        "en": "IMTS compact Annual"
+      },
+      "descriptions": {
+        "en": "For IMTS Annual compact data"
+      },
+      "structure": {
+        "agency": "UNSD",
+        "id": "IMTS_COMPACT",
+        "version": "1.2"
+      },
+      "trade_candidate": true
+    },
+    {
+      "agency": "UNSD",
+      "id": "IMTS_COMPACT_M",
+      "version": "1.0",
+      "labels": {
+        "en": "IMTS compact Monthly"
+      },
+      "descriptions": {
+        "en": "For IMTS monthly compact data"
+      },
+      "structure": {
+        "agency": "UNSD",
+        "id": "IMTS_COMPACT",
+        "version": "1.2"
+      },
+      "trade_candidate": true
+    },
+    {
+      "agency": "UNSD",
+      "id": "IMTS_M",
+      "version": "1.0",
+      "labels": {
+        "en": "IMTS Monthly"
+      },
+      "descriptions": {
+        "en": "For IMTS monthly data"
+      },
+      "structure": {
+        "agency": "UNSD",
+        "id": "IMTS",
+        "version": "1.2"
+      },
+      "trade_candidate": true
+    }
+  ]
+}

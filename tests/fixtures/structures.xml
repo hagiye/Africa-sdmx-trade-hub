@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<message:Structure
+    xmlns:message="http://www.sdmx.org/resources/sdmxml/schemas/v3_0/message"
+    xmlns:str="http://www.sdmx.org/resources/sdmxml/schemas/v3_0/structure"
+    xmlns:com="http://www.sdmx.org/resources/sdmxml/schemas/v3_0/common">
+  <message:Header>
+    <message:ID>fixture-request-1</message:ID>
+    <message:Test>false</message:Test>
+    <message:Prepared>2026-09-02T00:00:00Z</message:Prepared>
+    <message:Sender id="IMF"/>
+  </message:Header>
+  <message:Structures>
+    <str:Dataflows>
+      <str:Dataflow agencyID="UNSD" id="IMTS_A" version="1.0" isExternalReference="false">
+        <com:Name xml:lang="en">IMTS Annual</com:Name>
+        <com:Name xml:lang="fr">Commerce international annuel</com:Name>
+        <com:Description xml:lang="en">Annual merchandise trade data</com:Description>
+        <str:Structure>urn:sdmx:org.sdmx.infomodel.datastructure.DataStructure=UNSD:IMTS(1.2)</str:Structure>
+      </str:Dataflow>
+    </str:Dataflows>
+    <str:DataStructures>
+      <str:DataStructure agencyID="UNSD" id="IMTS" version="1.2">
+        <com:Name xml:lang="en">International Merchandise Trade Statistics</com:Name>
+        <com:Name xml:lang="fr">Statistiques du commerce international de marchandises</com:Name>
+        <str:DataStructureComponents>
+          <str:DimensionList id="DimensionDescriptor">
+            <str:Dimension id="FREQ" position="1">
+              <str:ConceptIdentity>urn:sdmx:org.sdmx.infomodel.conceptscheme.Concept=UNSD:CS_IMTS(1.0).FREQ</str:ConceptIdentity>
+              <str:LocalRepresentation>
+                <str:Enumeration>urn:sdmx:org.sdmx.infomodel.codelist.Codelist=SDMX:CL_FREQ(2.0)</str:Enumeration>
+              </str:LocalRepresentation>
+            </str:Dimension>
+            <str:TimeDimension id="TIME_PERIOD">
+              <str:ConceptIdentity>urn:sdmx:org.sdmx.infomodel.conceptscheme.Concept=UNSD:CS_IMTS(1.0).TIME_PERIOD</str:ConceptIdentity>
+              <str:LocalRepresentation>
+                <str:TextFormat textType="ObservationalTimePeriod"/>
+              </str:LocalRepresentation>
+            </str:TimeDimension>
+          </str:DimensionList>
+          <str:AttributeList id="AttributeDescriptor">
+            <str:Attribute id="UNIT_MULT">
+              <str:ConceptIdentity>urn:sdmx:org.sdmx.infomodel.conceptscheme.Concept=UNSD:CS_IMTS(1.0).UNIT_MULT</str:ConceptIdentity>
+              <str:LocalRepresentation>
+                <str:Enumeration>urn:sdmx:org.sdmx.infomodel.codelist.Codelist=SDMX:CL_FREQ(2.0)</str:Enumeration>
+              </str:LocalRepresentation>
+              <str:AttributeRelationship><str:Observation/></str:AttributeRelationship>
+            </str:Attribute>
+          </str:AttributeList>
+          <str:MeasureList id="MeasureDescriptor">
+            <str:Measure id="OBS_VALUE">
+              <str:ConceptIdentity>urn:sdmx:org.sdmx.infomodel.conceptscheme.Concept=UNSD:CS_IMTS(1.0).OBS_VALUE</str:ConceptIdentity>
+              <str:LocalRepresentation><str:TextFormat textType="Decimal"/></str:LocalRepresentation>
+            </str:Measure>
+          </str:MeasureList>
+        </str:DataStructureComponents>
+      </str:DataStructure>
+    </str:DataStructures>
+    <str:ConceptSchemes>
+      <str:ConceptScheme agencyID="UNSD" id="CS_IMTS" version="1.0">
+        <com:Name xml:lang="en">IMTS concepts</com:Name>
+        <com:Name xml:lang="fr">Concepts IMTS</com:Name>
+        <str:Concept id="FREQ">
+          <com:Name xml:lang="en">Frequency</com:Name>
+          <com:Name xml:lang="fr">Frequence</com:Name>
+        </str:Concept>
+        <str:Concept id="OBS_VALUE">
+          <com:Name xml:lang="en">Observation value</com:Name>
+          <com:Name xml:lang="fr">Valeur observee</com:Name>
+        </str:Concept>
+      </str:ConceptScheme>
+    </str:ConceptSchemes>
+    <str:Codelists>
+      <str:Codelist agencyID="SDMX" id="CL_FREQ" version="2.0">
+        <com:Name xml:lang="en">Frequency</com:Name>
+        <com:Name xml:lang="fr">Frequence</com:Name>
+        <str:Code id="A">
+          <com:Name xml:lang="en">Annual</com:Name>
+          <com:Name xml:lang="fr">Annuel</com:Name>
+        </str:Code>
+        <str:Code id="M">
+          <com:Name xml:lang="en">Monthly</com:Name>
+          <com:Name xml:lang="fr">Mensuel</com:Name>
+          <str:Parent>A</str:Parent>
+        </str:Code>
+      </str:Codelist>
+    </str:Codelists>
+    <str:Constraints>
+      <str:DataConstraint agencyID="UNSD" id="IMTS_CONSTRAINT" version="1.0">
+        <com:Name xml:lang="en">IMTS fixture constraint</com:Name>
+      </str:DataConstraint>
+    </str:Constraints>
+  </message:Structures>
+</message:Structure>
