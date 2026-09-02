@@ -147,3 +147,78 @@ WORLD_PARTNER_CLASSIFICATION = {
     "area_type": "AGGREGATE",
     "is_country": False,
 }
+
+
+# Executable declarations used by the generic parser. Translation tables only
+# contain provider-to-SDMX values confirmed during discovery; unknown values are
+# preserved in source_fields but are not fabricated as SDMX dimension codes.
+COMTRADE_OBSERVATION_CONTAINER = "data"
+
+COMTRADE_DIMENSION_RULES = {
+    "FREQ": {
+        "kind": "direct",
+        "source_fields": ("freqCode",),
+    },
+    "REF_AREA": {
+        "kind": "lookup",
+        "source_fields": ("reporterCode",),
+        "translations": {"788": "TN"},
+    },
+    "TRADE_FLOW": {
+        "kind": "direct",
+        "source_fields": ("flowCode",),
+    },
+    "COMMODITY_1": {
+        "kind": "composite_lookup",
+        "source_fields": ("classificationCode", "cmdCode"),
+        "translations": {("S4", "TOTAL"): "SITC4_TOTAL"},
+    },
+    "COUNTERPART_AREA_1": {
+        "kind": "lookup",
+        "source_fields": ("partnerCode",),
+        "translations": {"0": "W0"},
+    },
+    "COUNTERPART_AREA_2": {
+        "kind": "lookup",
+        "source_fields": ("partner2Code",),
+        "translations": {"0": "W0"},
+    },
+}
+
+COMTRADE_STATISTICAL_VALUE_FIELDS = tuple(
+    field
+    for field, metadata in COMTRADE_JSON_TO_SDMX.items()
+    if metadata["concept"] == "OBS_VALUE"
+    and metadata["relationship"] in {"DIRECT", "DERIVED"}
+)
+
+COMTRADE_ATTRIBUTE_FIELDS = (
+    "aggrLevel",
+    "altQtyUnitAbbr",
+    "altQtyUnitCode",
+    "classificationSearchCode",
+    "cmdDesc",
+    "customsDesc",
+    "flowDesc",
+    "isAggregate",
+    "isAltQtyEstimated",
+    "isGrossWgtEstimated",
+    "isLeaf",
+    "isNetWgtEstimated",
+    "isOriginalClassification",
+    "isQtyEstimated",
+    "isReported",
+    "legacyEstimationFlag",
+    "motDesc",
+    "partner2Desc",
+    "partner2ISO",
+    "partnerDesc",
+    "partnerISO",
+    "qtyUnitAbbr",
+    "qtyUnitCode",
+    "refMonth",
+    "refPeriodId",
+    "refYear",
+    "reporterDesc",
+    "reporterISO",
+)
