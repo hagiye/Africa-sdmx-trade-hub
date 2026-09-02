@@ -2,38 +2,42 @@
 
 Verified on: `2026-09-02`
 
-This checkpoint is discovery only. No observations are parsed or written to
+This checkpoint discovers and probes the query contract only. It does not
+parse observations into warehouse models and does not write observations to
 PostgreSQL.
 
-## Result
+## Result and provider boundary
 
-The selected structural provider, **IMF SDMX Central**, does not currently
-expose a working data resource for this Dataflow. Its API-v2 candidate data
-endpoint returns HTTP `501` with the message `data resource not supported for
-API version 2`. The provider's legacy SDMX REST endpoint was checked as a
-fallback and also returns HTTP `501`, with `Data Queries are not implemented`.
+The real observation provider is **UN Comtrade**. A deliberately narrow public
+preview query returns one Kenya annual import observation with HTTP `200`.
 
-Therefore, the Dataflow and DSD are usable structural metadata, but they are
-not evidence of a queryable observation feed. A warehouse ingestion step must
-not be built against this registry until a real observation provider is
-identified.
+The SDMX structures and observations are served by different systems:
+
+- IMF SDMX Central stores the selected Dataflow and DSD. Its entry point is
+  `https://sdmxcentral.imf.org/sdmx/v2/`; it implements SDMX REST v2 and returns
+  SDMX 3.0 structure messages.
+- UN Comtrade serves the actual trade observations at
+  `https://comtradeapi.un.org/public/v1/preview`. This is Comtrade REST API v1,
+  not an SDMX REST observation endpoint.
+
+The registry's `/data` resource returns HTTP `501`, and UN Comtrade's retired
+`getSdmxV1.aspx` service redirects to an error page. Therefore the application
+must not pretend that an SDMX positional key can be sent directly to the live
+observation endpoint. The stored SDMX metadata is used as the semantic contract
+and its supported dimensions are translated to Comtrade's named parameters.
 
 ## Stored structure identities
 
-- Provider: IMF SDMX Central
-- Structure API entry point: `https://sdmxcentral.imf.org/sdmx/v2/`
-- SDMX REST API version: `2.0.0`
-- Structure message version: SDMX `3.0`
 - Dataflow: `UNSD:IMTS_A(1.0)` — IMTS Annual
 - DSD: `UNSD:IMTS(1.2)` — International Merchandise Trade Statistics
 
-The script reads these identities and the component order from the local
-metadata registry. It does not duplicate the DSD as an independent source of
-truth.
+The script loads both records and the component order from the PostgreSQL
+metadata registry. It also resolves the sample SDMX codes by their imported
+English codelist labels; no SDMX code is guessed.
 
-## Exact dimension order
+## Exact DSD dimension order
 
-| Position | Dimension | Key component? |
+| Position | Dimension | SDMX key component? |
 |---:|---|---|
 | 1 | `FREQ` | yes |
 | 2 | `REF_AREA` | yes |
@@ -53,98 +57,127 @@ truth.
 | 16 | `ACTIVITY` | yes |
 | 17 | `TRANSFORMATION` | yes |
 | 18 | `MEASURE` | yes |
-| 19 | `TIME_PERIOD` | no; supplied with date parameters |
+| 19 | `TIME_PERIOD` | no; it is the time dimension |
 
-The positional key contains the first 18 dimensions in exactly this order.
-`TIME_PERIOD` is filtered separately.
+An SDMX REST v2 positional key contains the first 18 components in exactly
+that order, separated by dots. `*` means any value for one component. Multiple
+values within one component use `+`; multiple complete keys use commas.
 
-## Query construction
-
-The SDMX REST v2 candidate path is:
-
-```text
-{entry-point}/data/dataflow/{agency}/{dataflow-id}/{version}/{key}
-```
-
-For this Dataflow:
+The codelist-derived sample key is:
 
 ```text
-https://sdmxcentral.imf.org/sdmx/v2/data/dataflow/UNSD/IMTS_A/1.0/{key}
+A.KE.M.HS17_TOTAL.*.*.*.*.W0.*.W0.*.*.*.*.*.*.*
 ```
 
-Key components are separated by dots. `*` is the API-v2 wildcard for any
-value in one dimension. Multiple complete keys would be separated by commas.
-The sample fixes only three codes and leaves every other key dimension
-wildcarded:
+It fixes annual frequency, Kenya, total imports, all HS 2017 commodities, and
+World for both counterpart dimensions. Remaining components are wildcarded.
+This key documents the stored DSD contract; it is not sent to Comtrade v1.
+
+## Mapping the DSD to the real provider
+
+UN Comtrade v1 uses three path values followed by named query parameters:
 
 ```text
-A.KE.M.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*
+{endpoint}/{typeCode}/{freqCode}/{classificationCode}?{parameters}
 ```
 
-These codes are resolved by English label from the imported codelists at run
-time; they are not guessed:
+For the sample, the provider path key is `C/A/HS`:
 
-| Dimension | Stored codelist | Label selected | Code resolved |
-|---|---|---|---|
-| `FREQ` | `SDMX:CL_FREQ(2.0)` | Annual | `A` |
-| `REF_AREA` | `UNSD:CL_AREA(1.0)` | Kenya | `KE` |
-| `TRADE_FLOW` | `UNSD:CL_TRADE_FLOW(1.0)` | Total Imports | `M` |
+- `C` selects merchandise (commodity) trade.
+- `A` is resolved from `SDMX:CL_FREQ(2.0)` by the label `Annual`.
+- `HS` asks Comtrade for the reporter's original Harmonized System edition.
 
-The complete bounded probe is:
+The supported dimension translation is:
+
+| Stored DSD dimension | Comtrade v1 location | Sample resolution |
+|---|---|---|
+| `FREQ` | path `freqCode` | `A`, from the stored codelist |
+| `REF_AREA` | `reporterCode` | stored `KE`; official `Reporters.json` resolves it to M49 `404` |
+| `TRADE_FLOW` | `flowCode` | `M`, from stored label `Total Imports` |
+| `COMMODITY_1` | path `classificationCode` plus `cmdCode` | stored `HS17_TOTAL`; provider route `HS`, command `TOTAL` |
+| `COUNTERPART_AREA_1` | `partnerCode` | stored `W0`; official `partnerAreas.json` resolves World to `0` |
+| `COUNTERPART_AREA_2` | `partner2Code` | World, provider code `0` |
+| `TIME_PERIOD` | `period` | `2020` |
+
+Other DSD dimensions are not directly expressible by the classic preview
+query. `breakdownMode=classic` asks Comtrade for the classic aggregate, and
+the response confirms total customs and transport values. The returned record
+also confirms classification `H5`, Comtrade's identifier for HS 2017, matching
+the stored `HS17_TOTAL` codelist code.
+
+## Exact bounded query
+
+The data endpoint template is:
 
 ```text
-https://sdmxcentral.imf.org/sdmx/v2/data/dataflow/UNSD/IMTS_A/1.0/A.KE.M.*.*.*.*.*.*.*.*.*.*.*.*.*.*.*?startPeriod=2023&endPeriod=2023&firstNObservations=1&max=1
+https://comtradeapi.un.org/public/v1/preview/{typeCode}/{freqCode}/{classificationCode}
 ```
 
-`startPeriod` and `endPeriod` use valid SDMX time-period strings and are
-inclusive bounds in the Fusion Registry data-query implementation. The
-provider implementation documents these parameters for both its legacy and
-API-v2 entry points. The SDMX REST v2 standard also offers component-filter
-syntax such as `c[TIME_PERIOD]=ge:2023+le:2023`; this probe retains
-`startPeriod` and `endPeriod` because those are the provider-documented
-parameters required by this checkpoint.
+The verified request is:
 
-## Response formats
-
-The probe requests SDMX-CSV 2.0 with:
-
-```http
-Accept: application/vnd.sdmx.data+csv;version=2.0.0
+```text
+https://comtradeapi.un.org/public/v1/preview/C/A/HS?period=2020&reporterCode=404&flowCode=M&partnerCode=0&partner2Code=0&cmdCode=TOTAL&maxRecords=1&breakdownMode=classic&includeDesc=true&format=JSON
 ```
 
-The Fusion Registry implementation advertises SDMX-JSON, SDMX-CSV, SDMX-EDI,
-SDMX-ML Generic Data, and SDMX-ML Structure Specific Data. The current IMF
-SDMX Central deployment cannot demonstrate any successful data format because
-the data resource is disabled. Its `501` response is an SDMX-ML 2.1 error
-document returned as `application/xml;charset=UTF-8`.
+`maxRecords=1`, the fully specified aggregate, and the client's 64 KiB response
+cap prevent a large transfer. The script rejects the response unless it has
+exactly one matching record with a non-null `primaryValue`.
 
-## Constraints and limits
+## Date parameters
 
-- The earlier content-constraint discovery request for UNSD returned HTTP
-  `404`; no content constraint was imported. Consequently, codelist validity
-  can be proven for each selected code, but availability of this exact code
-  combination cannot be claimed.
-- The API-v2 availability resource returns HTTP `501` and says that the
-  resource is unsupported.
-- No numeric provider-side series, observation, payload, or rate limit is
-  disclosed in the responses or provider guide.
-- To prevent a large transfer if the resource is enabled later, the script
-  sends `firstNObservations=1` and the Fusion `max=1` pagination extension,
-  streams the response, and reads at most 64 KiB.
+Standard SDMX REST data queries use inclusive `startPeriod` and `endPeriod`
+parameters. The live Comtrade v1 endpoint does **not** use those names; it uses
+`period` (`YYYY` for annual data and `YYYYMM` for monthly data). Thus this
+checkpoint's bounds:
+
+```text
+startPeriod=2020&endPeriod=2020
+```
+
+translate exactly to:
+
+```text
+period=2020
+```
+
+The discovery script intentionally requires equal start and end periods. A
+future ingestion step must explicitly implement range expansion rather than
+silently treating Comtrade's parameter as an SDMX date range.
+
+## Response formats and limits
+
+- The sample requests and parses JSON with `format=JSON` and returns HTTP `200`.
+- UN Comtrade's official Python client documents JSON and CSV output for data
+  queries. The help centre also documents text output for supported download
+  endpoints. JSON is used here because it permits strict validation without
+  saving a response file.
+- The unauthenticated public preview endpoint is capped at 500 records. The
+  script requests one.
+- Authenticated data endpoints require a subscription key and support larger
+  limits; the official client documents a 250,000-record cap for synchronous
+  final-data calls. This checkpoint uses neither endpoint nor credentials.
+- The provider publishes no numeric unauthenticated rate limit. HTTP `429` can
+  occur when requests are made too rapidly.
+- The prior structure discovery found no published UNSD content constraint in
+  IMF SDMX Central (HTTP `404`). A valid codelist code is therefore not proof
+  that every combination has observations; this script proves the sample by
+  checking a real returned record.
 
 ## Reproduce
 
-With PostgreSQL running and the structural registry already imported:
+With PostgreSQL running and Checkpoints 1–18 imported:
 
 ```powershell
 python scripts/discover_trade_query.py
 ```
 
-The expected discovery status as of the verification date is HTTP `501`, not
-HTTP `200`. That status is a provider capability result, not a script failure.
+The script performs read-only metadata queries plus one one-record observation
+probe. It does not modify the statistical warehouse.
 
 ## Sources
 
-- [IMF SDMX Central Web Services Guide](https://dsbb.imf.org/content/pdfs/IMFSDMXCentralWebServicesGuide.pdf)
-- [Fusion Registry data-query service](https://wiki.sdmxcloud.org/Data_Query_Web_Service)
+- [UN Comtrade API documentation](https://uncomtrade.org/docs/un-comtrade-api/)
+- [UN Comtrade country-code references](https://uncomtrade.org/docs/country-codes/)
+- [Official UN Comtrade Python client](https://github.com/uncomtrade/comtradeapicall)
+- [SDMX-IMTS structures](https://comtrade.un.org/sdmx/)
 - [SDMX REST data-query specification](https://github.com/sdmx-twg/sdmx-rest/blob/master/doc/data.md)
