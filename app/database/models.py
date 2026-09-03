@@ -45,6 +45,22 @@ class MappingStatus(StrEnum):
     UNMAPPED = "UNMAPPED"
 
 
+class SdmxMappingType(StrEnum):
+    DIRECT = "DIRECT"
+    RENAME = "RENAME"
+    TRANSFORM = "TRANSFORM"
+    DERIVE = "DERIVE"
+    DROP = "DROP"
+    DEFER = "DEFER"
+
+
+class SdmxMappingStatus(StrEnum):
+    DRAFT = "DRAFT"
+    CONFIRMED = "CONFIRMED"
+    MANUAL = "MANUAL"
+    DEPRECATED = "DEPRECATED"
+
+
 class IngestionBatchStatus(StrEnum):
     RUNNING = "RUNNING"
     SUCCESS = "SUCCESS"
@@ -193,6 +209,178 @@ class SourceGeoMapping(TimestampMixin, Base):
     mapping_method: Mapped[str | None] = mapped_column(String(128))
     notes: Mapped[str | None] = mapped_column(Text)
     geo_area: Mapped[GeoArea | None] = relationship()
+
+
+class SdmxTransformationDefinition(TimestampMixin, Base):
+    """Versioned metadata for a source-controlled transformation implementation."""
+
+    __tablename__ = "sdmx_transformation_definition"
+    __table_args__ = (
+        UniqueConstraint(
+            "transformation_id",
+            "version",
+            name="uq_sdmx_transformation_definition_identity",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    transformation_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    implementation_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    version: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class SdmxConceptMapping(TimestampMixin, Base):
+    """One version-aware concept decision between two SDMX structures."""
+
+    __tablename__ = "sdmx_concept_mapping"
+    __table_args__ = (
+        UniqueConstraint(
+            "mapping_definition_id",
+            "mapping_version",
+            "source_agency",
+            "source_structure_id",
+            "source_structure_version",
+            "source_concept_id",
+            "target_agency",
+            "target_structure_id",
+            "target_structure_version",
+            "target_concept_key",
+            name="uq_sdmx_concept_mapping_identity",
+        ),
+        CheckConstraint(
+            "mapping_type IN ('DIRECT', 'RENAME', 'TRANSFORM', 'DERIVE', "
+            "'DROP', 'DEFER')",
+            name="ck_sdmx_concept_mapping_type",
+        ),
+        CheckConstraint(
+            "status IN ('DRAFT', 'CONFIRMED', 'MANUAL', 'DEPRECATED')",
+            name="ck_sdmx_concept_mapping_status",
+        ),
+        CheckConstraint(
+            "valid_to IS NULL OR valid_from IS NULL OR valid_to >= valid_from",
+            name="ck_sdmx_concept_mapping_valid_period",
+        ),
+        CheckConstraint(
+            "target_concept_key = COALESCE(target_concept_id, '')",
+            name="ck_sdmx_concept_mapping_target_key",
+        ),
+        Index(
+            "ix_sdmx_concept_mapping_source_target",
+            "source_agency",
+            "source_structure_id",
+            "source_structure_version",
+            "target_agency",
+            "target_structure_id",
+            "target_structure_version",
+        ),
+        Index("ix_sdmx_concept_mapping_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    mapping_definition_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    mapping_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    definition_checksum: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_agency: Mapped[str] = mapped_column(String(128), nullable=False)
+    source_structure_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    source_structure_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_concept_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    target_agency: Mapped[str] = mapped_column(String(128), nullable=False)
+    target_structure_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    target_structure_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    target_concept_id: Mapped[str | None] = mapped_column(String(255))
+    target_concept_key: Mapped[str] = mapped_column(
+        String(255), default="", server_default=text("''"), nullable=False
+    )
+    mapping_type: Mapped[SdmxMappingType] = mapped_column(
+        SAEnum(
+            SdmxMappingType,
+            name="sdmx_mapping_type",
+            native_enum=False,
+            create_constraint=False,
+            validate_strings=True,
+        ),
+        nullable=False,
+    )
+    status: Mapped[SdmxMappingStatus] = mapped_column(
+        SAEnum(
+            SdmxMappingStatus,
+            name="sdmx_mapping_status",
+            native_enum=False,
+            create_constraint=False,
+            validate_strings=True,
+        ),
+        nullable=False,
+    )
+    transformation_id: Mapped[str | None] = mapped_column(String(128))
+    valid_from: Mapped[date | None] = mapped_column(Date)
+    valid_to: Mapped[date | None] = mapped_column(Date)
+    notes: Mapped[str | None] = mapped_column(Text)
+    code_mappings: Mapped[list[SdmxCodeMapping]] = relationship(
+        cascade="all, delete-orphan", back_populates="concept_mapping"
+    )
+
+
+class SdmxCodeMapping(TimestampMixin, Base):
+    """Explicit code resolution within one concept mapping."""
+
+    __tablename__ = "sdmx_code_mapping"
+    __table_args__ = (
+        UniqueConstraint(
+            "concept_mapping_id",
+            "source_codelist_agency",
+            "source_codelist_id",
+            "source_codelist_version",
+            "source_code",
+            "validity_context",
+            name="uq_sdmx_code_mapping_source_identity",
+        ),
+        CheckConstraint(
+            "status IN ('DRAFT', 'CONFIRMED', 'MANUAL', 'DEPRECATED')",
+            name="ck_sdmx_code_mapping_status",
+        ),
+        CheckConstraint(
+            "valid_to IS NULL OR valid_from IS NULL OR valid_to >= valid_from",
+            name="ck_sdmx_code_mapping_valid_period",
+        ),
+        Index("ix_sdmx_code_mapping_concept_mapping_id", "concept_mapping_id"),
+        Index("ix_sdmx_code_mapping_source_code", "source_code"),
+        Index("ix_sdmx_code_mapping_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    concept_mapping_id: Mapped[int] = mapped_column(
+        ForeignKey("sdmx_concept_mapping.id", ondelete="CASCADE"), nullable=False
+    )
+    source_codelist_agency: Mapped[str] = mapped_column(String(128), nullable=False)
+    source_codelist_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    source_codelist_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_code: Mapped[str] = mapped_column(String(255), nullable=False)
+    target_codelist_agency: Mapped[str | None] = mapped_column(String(128))
+    target_codelist_id: Mapped[str | None] = mapped_column(String(255))
+    target_codelist_version: Mapped[str | None] = mapped_column(String(64))
+    target_code: Mapped[str | None] = mapped_column(String(255))
+    status: Mapped[SdmxMappingStatus] = mapped_column(
+        SAEnum(
+            SdmxMappingStatus,
+            name="sdmx_mapping_status",
+            native_enum=False,
+            create_constraint=False,
+            validate_strings=True,
+        ),
+        nullable=False,
+    )
+    mapping_method: Mapped[str] = mapped_column(String(128), nullable=False)
+    valid_from: Mapped[date | None] = mapped_column(Date)
+    valid_to: Mapped[date | None] = mapped_column(Date)
+    validity_context: Mapped[str] = mapped_column(
+        String(64), default="OPEN", server_default=text("'OPEN'"), nullable=False
+    )
+    notes: Mapped[str | None] = mapped_column(Text)
+    concept_mapping: Mapped[SdmxConceptMapping] = relationship(
+        back_populates="code_mappings"
+    )
 
 
 class Agency(TimestampMixin, Base):

@@ -3,8 +3,9 @@
 > `AFRSTAT:AFR_TRADE(1.0)` is an independent portfolio demonstration
 > structure, not an official African Union or STATAFRIC SDMX artefact.
 
-This is design documentation only. The actions describe a possible future
-harmonisation boundary; they are not executable source-to-target mappings.
+This comparison records the Step 26A design boundary. The versioned mapping
+registry added in Step 26B is documented in `docs/afr-trade-mapping.md`; it
+still contains metadata only and does not transform observations.
 
 | Source concept | Target concept | Action | Notes |
 | --- | --- | --- | --- |
@@ -56,6 +57,6 @@ Omission does not mean the source concepts are unimportant:
 - all original fields remain available in the source warehouse even when they
   are not promoted into the canonical target.
 
-No `DIRECT`, `RENAME`, `SIMPLIFY`, `DERIVE`, `DROP`, or `DEFER` row in this
-document performs a transformation. Executable mappings belong to a later
-step.
+No row in this comparison performs an observation transformation. The Step
+26B registry formalises the selected decisions, while execution belongs to a
+later step.

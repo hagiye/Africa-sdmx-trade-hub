@@ -95,6 +95,18 @@ python scripts/show_metadata_registry.py
 pytest -v
 ```
 
+## AFR_TRADE mapping registry
+
+Step 26B's version-aware, metadata-only mapping registry is documented in
+[`docs/afr-trade-mapping.md`](docs/afr-trade-mapping.md). Load and inspect it
+after both source and target structures are present:
+
+```powershell
+python scripts/load_afr_trade_mappings.py
+python scripts/show_afr_trade_mappings.py
+python scripts/report_mapping_coverage.py
+```
+
 Live integration tests are explicit and are excluded from the deterministic
 default suite:
 

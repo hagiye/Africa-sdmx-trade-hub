@@ -1,0 +1,64 @@
+{
+  "format": "PROJECT_SDMX_MAPPING_DEFINITION",
+  "format_version": "1.0",
+  "mapping": {
+    "id": "UNSD_IMTS_TO_AFR_TRADE",
+    "version": "1.0",
+    "status_policy": "Only CONFIRMED mappings are eligible for automatic use."
+  },
+  "source": {"agency": "UNSD", "structure": "IMTS", "version": "1.2"},
+  "target": {"agency": "AFRSTAT", "structure": "AFR_TRADE", "version": "1.0"},
+  "disclaimer": "AFRSTAT:AFR_TRADE is an independent portfolio demonstration model. This mapping is not an official African Union or STATAFRIC harmonisation specification.",
+  "transformations": [
+    {"id": "IDENTITY", "name": "Identity metadata", "description": "Records confirmed semantic identity; code passthrough is never implied when an explicit code mapping is required.", "implementation_key": "IDENTITY", "version": "1.0"},
+    {"id": "NORMALIZE_AREA", "name": "Canonical geography lookup", "description": "Resolve provider geography through source_geo_mapping and geo_area before selecting a target area code.", "implementation_key": "NORMALIZE_AREA", "version": "1.0"},
+    {"id": "MAP_TRADE_FLOW", "name": "Trade-flow code lookup", "description": "Resolve source trade-flow codes using explicit code mappings.", "implementation_key": "MAP_TRADE_FLOW", "version": "1.0"},
+    {"id": "MAP_PRODUCT_SCHEME", "name": "Product classification lookup", "description": "Derive the target product scheme from classification-aware source commodity metadata.", "implementation_key": "MAP_PRODUCT_SCHEME", "version": "1.0"},
+    {"id": "MAP_PRODUCT", "name": "Classification-aware product lookup", "description": "Resolve a source commodity only within its declared classification context.", "implementation_key": "MAP_PRODUCT", "version": "1.0"},
+    {"id": "MAP_UNIT", "name": "Measure and unit lookup", "description": "Reserved for a later approved mapping of source measure semantics to target unit metadata.", "implementation_key": "MAP_UNIT", "version": "1.0"}
+  ],
+  "concepts": [
+    {"source": "FREQ", "target": "FREQ", "type": "DIRECT", "status": "CONFIRMED", "transformation": "IDENTITY", "notes": "Frequency semantics align; code use remains explicit."},
+    {"source": "REF_AREA", "target": "REF_AREA", "type": "TRANSFORM", "status": "CONFIRMED", "transformation": "NORMALIZE_AREA", "notes": "Use source_geo_mapping and geo_area; do not duplicate geography logic."},
+    {"source": "TRADE_FLOW", "target": "TRADE_FLOW", "type": "TRANSFORM", "status": "CONFIRMED", "transformation": "MAP_TRADE_FLOW", "notes": "Source M/X resolve to target IMPORT/EXPORT."},
+    {"source": "COMMODITY_1", "target": "PRODUCT_SCHEME", "type": "DERIVE", "status": "CONFIRMED", "transformation": "MAP_PRODUCT_SCHEME", "notes": "Classification context is required."},
+    {"source": "COMMODITY_1", "target": "PRODUCT", "type": "DERIVE", "status": "CONFIRMED", "transformation": "MAP_PRODUCT", "notes": "Product codes are never interpreted without classification context."},
+    {"source": "COMMODITY_1_CONF", "target": "CONF_STATUS", "type": "DEFER", "status": "DRAFT", "notes": "Confidentiality precedence and source exposure are not established."},
+    {"source": "COMMODITY_2", "target": null, "type": "DROP", "status": "CONFIRMED", "notes": "Secondary commodity is outside AFR_TRADE 1.0."},
+    {"source": "COMMODITY_2_CONF", "target": null, "type": "DROP", "status": "CONFIRMED", "notes": "Depends on the omitted secondary commodity."},
+    {"source": "COMMODITY_CUSTOM_BREAKDOWN", "target": null, "type": "DEFER", "status": "DRAFT", "notes": "Requires a future custom-product design."},
+    {"source": "COUNTERPART_AREA_1", "target": "COUNTERPART_AREA", "type": "RENAME", "status": "CONFIRMED", "transformation": "NORMALIZE_AREA", "notes": "Concept renamed; codes still resolve through canonical geography."},
+    {"source": "COUNTERPART_AREA_1_CONF", "target": "CONF_STATUS", "type": "DEFER", "status": "DRAFT", "notes": "Confidentiality semantics are not approved."},
+    {"source": "COUNTERPART_AREA_2", "target": null, "type": "DROP", "status": "CONFIRMED", "notes": "Secondary counterpart is outside AFR_TRADE 1.0."},
+    {"source": "COUNTERPART_AREA_2_CONF", "target": null, "type": "DROP", "status": "CONFIRMED", "notes": "Depends on the omitted secondary counterpart."},
+    {"source": "TRANSPORT_MODE_BORDER", "target": null, "type": "DEFER", "status": "DRAFT", "notes": "Not harmonised in the MVP."},
+    {"source": "TRANSPORT_MODE_BORDER_CONF", "target": null, "type": "DEFER", "status": "DRAFT", "notes": "Not harmonised in the MVP."},
+    {"source": "CUSTOMS_PROC", "target": null, "type": "DEFER", "status": "DRAFT", "notes": "Authoritative target semantics are not established."},
+    {"source": "ACTIVITY", "target": null, "type": "DEFER", "status": "DRAFT", "notes": "Outside the aggregate trade MVP."},
+    {"source": "TRANSFORMATION", "target": null, "type": "DEFER", "status": "DRAFT", "notes": "Outside the aggregate trade MVP."},
+    {"source": "MEASURE", "target": "UNIT_MEASURE", "type": "DEFER", "status": "DRAFT", "transformation": "MAP_UNIT", "notes": "primaryValue is not a unit; exact monetary semantics require approval."},
+    {"source": "TIME_PERIOD", "target": "TIME_PERIOD", "type": "DIRECT", "status": "CONFIRMED", "transformation": "IDENTITY", "notes": "Time format remains conditional on FREQ."},
+
+    {"source": "OBS_VALUE", "target": "OBS_VALUE", "type": "DIRECT", "status": "CONFIRMED", "transformation": "IDENTITY", "notes": "Numeric primary measure only; no observation transformation is implemented here."},
+    {"source": "COMMENT_OBS", "target": null, "type": "DROP", "status": "CONFIRMED", "notes": "Free text remains in source evidence."},
+    {"source": "COMMODITY_CUSTOM_CODE", "target": null, "type": "DEFER", "status": "DRAFT", "notes": "Depends on a future custom-product model."},
+    {"source": "COMMODITY_CUSTOM_DESC", "target": null, "type": "DEFER", "status": "DRAFT", "notes": "Depends on a future custom-product model."},
+    {"source": "COUNTERPART_AREA_1_ANNOTATION", "target": null, "type": "DROP", "status": "CONFIRMED", "notes": "Annotation stays in source evidence."},
+    {"source": "COUNTERPART_AREA_1_TYPE", "target": null, "type": "DROP", "status": "CONFIRMED", "notes": "Country/region/aggregate type is carried by canonical geo_area metadata."},
+    {"source": "COUNTERPART_AREA_2_ANNOTATION", "target": null, "type": "DROP", "status": "CONFIRMED", "notes": "Secondary counterpart is omitted."},
+    {"source": "COUNTERPART_AREA_2_TYPE", "target": null, "type": "DROP", "status": "CONFIRMED", "notes": "Secondary counterpart is omitted."},
+    {"source": "OBS_STATUS", "target": "OBS_STATUS", "type": "DEFER", "status": "DRAFT", "notes": "Source and provider status equivalence is not established."},
+    {"source": "TRADE_SYSTEM", "target": null, "type": "DEFER", "status": "DRAFT", "notes": "Potentially useful but not harmonised in AFR_TRADE 1.0."},
+    {"source": "UNIT_MEASURE", "target": "UNIT_MEASURE", "type": "DEFER", "status": "DRAFT", "transformation": "MAP_UNIT", "notes": "The simplified source sample does not establish the unit of primaryValue."},
+    {"source": "UNIT_MULT", "target": "UNIT_MULT", "type": "DEFER", "status": "DRAFT", "notes": "Target supports unscaled values, but source assignment is not approved."}
+  ],
+  "codes": [
+    {"concept": {"source": "FREQ", "target": "FREQ"}, "source_codelist": {"agency": "SDMX", "id": "CL_FREQ", "version": "2.0"}, "source_code": "A", "target_codelist": {"agency": "AFRSTAT", "id": "CL_FREQ", "version": "1.0"}, "target_code": "A", "status": "CONFIRMED", "method": "EXPLICIT_IDENTITY", "notes": "Annual frequency only for the current MVP."},
+    {"concept": {"source": "REF_AREA", "target": "REF_AREA"}, "source_codelist": {"agency": "UNSD", "id": "CL_AREA", "version": "1.0"}, "source_code": "TN", "target_codelist": {"agency": "AFRSTAT", "id": "CL_AFR_AREA", "version": "1.0"}, "target_code": "TN", "status": "CONFIRMED", "method": "CANONICAL_GEO_AREA", "notes": "The provider code 788 resolves through source_geo_mapping to canonical Tunisia; target projection is ISO2 TN."},
+    {"concept": {"source": "COUNTERPART_AREA_1", "target": "COUNTERPART_AREA"}, "source_codelist": {"agency": "UNSD", "id": "CL_AREA", "version": "1.0"}, "source_code": "W0", "target_codelist": {"agency": "AFRSTAT", "id": "CL_AFR_AREA", "version": "1.0"}, "target_code": "AFR_WORLD", "status": "CONFIRMED", "method": "CANONICAL_GEO_AREA", "notes": "The provider code 0 resolves to the canonical World AGGREGATE, never a country."},
+    {"concept": {"source": "TRADE_FLOW", "target": "TRADE_FLOW"}, "source_codelist": {"agency": "UNSD", "id": "CL_TRADE_FLOW", "version": "1.0"}, "source_code": "M", "target_codelist": {"agency": "AFRSTAT", "id": "CL_TRADE_FLOW", "version": "1.0"}, "target_code": "IMPORT", "status": "CONFIRMED", "method": "EXPLICIT_CODE_MAP"},
+    {"concept": {"source": "TRADE_FLOW", "target": "TRADE_FLOW"}, "source_codelist": {"agency": "UNSD", "id": "CL_TRADE_FLOW", "version": "1.0"}, "source_code": "X", "target_codelist": {"agency": "AFRSTAT", "id": "CL_TRADE_FLOW", "version": "1.0"}, "target_code": "EXPORT", "status": "CONFIRMED", "method": "EXPLICIT_CODE_MAP"},
+    {"concept": {"source": "COMMODITY_1", "target": "PRODUCT_SCHEME"}, "source_codelist": {"agency": "UNSD", "id": "CL_COMMODITY", "version": "1.0"}, "source_code": "SITC4_TOTAL", "target_codelist": {"agency": "AFRSTAT", "id": "CL_PRODUCT_SCHEME", "version": "1.0"}, "target_code": "SITC4", "status": "CONFIRMED", "method": "CLASSIFICATION_AWARE", "notes": "Source S4 plus TOTAL is represented by the classification-aware SDMX code SITC4_TOTAL."},
+    {"concept": {"source": "COMMODITY_1", "target": "PRODUCT"}, "source_codelist": {"agency": "UNSD", "id": "CL_COMMODITY", "version": "1.0"}, "source_code": "SITC4_TOTAL", "target_codelist": {"agency": "AFRSTAT", "id": "CL_PRODUCT", "version": "1.0"}, "target_code": "TOTAL", "status": "CONFIRMED", "method": "CLASSIFICATION_AWARE", "notes": "Detailed products remain unresolved unless explicitly added for the same classification context."}
+  ]
+}
