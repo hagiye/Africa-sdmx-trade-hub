@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import models as db
@@ -273,15 +274,43 @@ def _store_observation(
         observation, identity, dataset_id=dataset_id
     )
     if existing is None:
-        session.add(
-            db.TradeObservation(
-                **values,
-                first_ingestion_batch_id=batch_id,
-                last_ingestion_batch_id=batch_id,
+        try:
+            with session.begin_nested():
+                session.add(
+                    db.TradeObservation(
+                        **values,
+                        first_ingestion_batch_id=batch_id,
+                        last_ingestion_batch_id=batch_id,
+                    )
+                )
+                session.flush()
+            return "INSERTED"
+        except IntegrityError as exc:
+            constraint_name = getattr(
+                getattr(exc.orig, "diag", None), "constraint_name", None
             )
-        )
-        return "INSERTED"
+            sqlite_identity_conflict = (
+                "trade_observation.dataset_id, "
+                "trade_observation.source_key_hash"
+            ) in str(exc)
+            if (
+                constraint_name
+                != "uq_trade_observation_dataset_source_key_hash"
+                and not sqlite_identity_conflict
+            ):
+                raise
+            existing = session.scalar(
+                select(db.TradeObservation).where(
+                    db.TradeObservation.dataset_id == dataset_id,
+                    db.TradeObservation.source_key_hash == identity.source_key_hash,
+                )
+            )
+            if existing is None:
+                raise
     if existing.observation_content_hash == identity.observation_content_hash:
+        # ``last_ingestion_batch_id`` means the last successful batch in which
+        # the source observation was seen, even when its content was unchanged.
+        existing.last_ingestion_batch_id = batch_id
         return "SKIPPED"
     for field, value in values.items():
         if field != "dataset_id":

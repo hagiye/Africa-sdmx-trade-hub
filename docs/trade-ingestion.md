@@ -25,9 +25,9 @@ It is not a bulk loader. The production script is deliberately limited to
 Tunisia (`reporterCode=788`), World (`partnerCode=0`, `partner2Code=0`), annual
 imports, SITC Rev.4 total commodity, and periods 2022, 2023, and 2024. It uses
 the unauthenticated preview endpoint with `maxRecords=1` for each period and a
-64 KiB response cap. The Step 24A script refuses to run if the seeded dataset
-already has any observation batch or warehouse observation, preventing an
-accidental second live execution during this checkpoint.
+64 KiB response cap. For Step 24B, the script requires exactly the Step 24A
+state of one prior batch and three observations. After it creates the second
+batch it refuses another run, preventing an accidental third live execution.
 
 The reporter code in the query is not an authorization rule. Every normalized
 record is resolved through `source_geo_mapping` to `geo_area`, and the shared
@@ -63,8 +63,9 @@ key, dataset-scoped source-key hash, and revision-sensitive content hash.
 
 - No row with `(dataset_id, source_key_hash)`: insert it, setting both first and
   last ingestion batch IDs to the current batch.
-- Same identity and same content hash: leave the stored statistical row
-  unchanged and increment `observations_skipped`.
+- Same identity and same content hash: leave statistical content unchanged,
+  point `last_ingestion_batch_id` to the current batch, and increment
+  `observations_skipped`.
 - Same identity and different content hash: update statistical values, source
   traceability, content hash, and last ingestion batch ID; retain the original
   first ingestion batch ID and increment `observations_updated`.
@@ -72,9 +73,56 @@ key, dataset-scoped source-key hash, and revision-sensitive content hash.
   problem: store one `observation_rejection` with the raw record and increment
   `observations_rejected`.
 
-Skip and revision behavior is implemented for deterministic service semantics,
-but Step 24A performs only the first live insertion. A second live execution is
-reserved for Step 24B.
+## Idempotent ingestion
+
+The pair of dataset ID and source-key hash identifies the statistical
+observation. If that identity and its content hash match an existing row, the
+incoming record is unchanged and the action is `SKIP`. It does not create a row
+or rewrite statistical values. A new `ingestion_batch` is still required:
+successful no-change checks are real, auditable provider interactions with
+their own time, query metadata, checksums, and counters.
+
+`first_ingestion_batch_id` means the batch that originally inserted the
+observation and never changes during skips or revisions.
+`last_ingestion_batch_id` means the latest successful batch in which the
+observation was seen. It therefore advances on `SKIP` as well as `UPDATE`.
+Updating this provenance field may advance the row's general `updated_at`, but
+does not change its identity, statistical values, source content, or content
+hash.
+
+Canonical source keys, observation content, and JSON checksums sort dictionary
+keys. Reordered JSON objects therefore remain unchanged. Volatile response
+envelope fields such as `elapsedTime` may change raw checksums but do not enter
+statistical checksums or observation content hashes.
+
+Within one response, the first copy of an identical record inserts and later
+copies skip. Across batches, all copies skip when already stored.
+
+## Duplicate protection
+
+Application logic first selects by `(dataset_id, source_key_hash)` and applies
+insert, skip, or update semantics. A possible concurrent insert is attempted
+inside a savepoint; if PostgreSQL reports the named identity uniqueness
+constraint, the service reloads the winning row and applies skip/update logic.
+Other integrity errors remain fatal.
+
+The final protection is PostgreSQL's
+`UNIQUE(dataset_id, source_key_hash)` constraint. It remains authoritative even
+if two workers race after both application-level lookups find no row. No
+distributed lock is introduced.
+
+## Step 24B observed result
+
+The controlled second live batch received, parsed, and accepted the same three
+2022–2024 observations. It inserted 0, updated 0, skipped 3, and rejected 0.
+The warehouse remained at three rows with no duplicate identity groups.
+`first_ingestion_batch_id` remained batch 2 and `last_ingestion_batch_id`
+advanced to batch 3 for every row.
+
+Both batches produced statistical checksum
+`0cd2274f54d61a7b8ca02cd539c60b3f40a86607da2073b054c20f4c4d5d1ca7`.
+Their raw checksums differed because the provider response envelope changed,
+which correctly did not create an observation revision.
 
 ## Batch checksums
 
@@ -97,10 +145,12 @@ checksum.
 alembic upgrade head
 alembic check
 pytest tests/test_trade_ingestion.py -v
+pytest tests/test_trade_ingestion_idempotency.py -v
 pytest -v
 python scripts/ingest_trade_data.py
 python scripts/show_trade_warehouse.py
 python scripts/report_ingestion_quality.py
+python scripts/compare_ingestion_batches.py
 ```
 
 Default tests use the committed fixtures and never contact UN Comtrade. The

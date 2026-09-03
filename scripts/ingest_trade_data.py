@@ -1,4 +1,4 @@
-"""Run the first and only Step 24A Tunisia-to-World live ingestion batch."""
+"""Run the exact Step 24B Tunisia-to-World re-ingestion batch once."""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ CONTROLLED_QUERY = TradeQuery(
 REQUEST_INTERVAL_SECONDS = 1.1
 
 
-def _resolve_first_run_dataset(session) -> db.StatDataset:
+def _resolve_second_run_dataset(session) -> db.StatDataset:
     dataset = session.scalar(
         select(db.StatDataset).where(
             db.StatDataset.agency == "UNSD",
@@ -60,9 +60,10 @@ def _resolve_first_run_dataset(session) -> db.StatDataset:
             db.TradeObservation.dataset_id == dataset.id
         )
     ) or 0
-    if batch_count or observation_count:
+    if batch_count != 1 or observation_count != 3:
         raise RuntimeError(
-            "Step 24A ingestion has already been attempted; refusing a second run"
+            "Step 24B requires exactly one prior batch and three observations; "
+            f"found {batch_count} batch(es) and {observation_count} observation(s)"
         )
     return dataset
 
@@ -70,7 +71,7 @@ def _resolve_first_run_dataset(session) -> db.StatDataset:
 def main() -> int:
     with SessionLocal() as session:
         try:
-            dataset = _resolve_first_run_dataset(session)
+            dataset = _resolve_second_run_dataset(session)
         except RuntimeError as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
