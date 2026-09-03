@@ -19,6 +19,7 @@ WAREHOUSE_MODELS = (
     db.TradeObservation,
     db.IngestionBatch,
     db.ObservationRejection,
+    db.ValidationFinding,
 )
 
 

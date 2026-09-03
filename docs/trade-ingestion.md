@@ -12,10 +12,10 @@ bounded JSON response
 generic parser -> trade normalizer -> canonical geography
                                       |
                                       v
-                              AU reporter rule
+                         SDMX-aware validation
                                       |
                                       v
-                         identity and content hashes
+                   accept/reject -> identity and hashes
                                       |
                                       v
                      trade_observation + ingestion_batch
@@ -30,12 +30,13 @@ state of one prior batch and three observations. After it creates the second
 batch it refuses another run, preventing an accidental third live execution.
 
 The reporter code in the query is not an authorization rule. Every normalized
-record is resolved through `source_geo_mapping` to `geo_area`, and the shared
-`is_au_reporter()` helper accepts it only when the canonical area is both a
-country and an African Union Member State. Tunisia resolves to country `TN` /
+record is resolved through `source_geo_mapping` to `geo_area`, and the
+`REFERENCE_AREA_IS_AU_MEMBER` application-scope rule accepts it only when the
+canonical area is both a country and an African Union Member State. Tunisia resolves to country `TN` /
 `TUN` with `au_member=true`. Counterparts need not be AU members: World resolves
 to an identifier-free `AGGREGATE` with `au_member=false` and is valid. An
-unmapped counterpart may remain nullable and does not by itself reject a row.
+unmapped counterpart may remain nullable and produces a persisted warning
+rather than rejecting the row.
 
 ## Batch lifecycle and traceability
 
@@ -45,9 +46,16 @@ It records deterministic query JSON, the period range, and actual received,
 parsed, accepted, inserted, updated, skipped, and rejected counts.
 
 Each response is parsed by the existing generic parser and normalized by the
-existing trade normalizer. Persisted observations retain `source_dimensions`,
+existing trade normalizer. The batch-scoped validation context then applies the
+current trade rules using cached DSD, codelist, and geography metadata.
+Persisted observations retain `source_dimensions`,
 `source_attributes`, and the complete source record in `source_fields`; API
 envelope metadata is not copied into observations.
+
+Validation `ERROR` or `FATAL` findings create an `observation_rejection` and
+linked `validation_result` rows. `WARNING` findings do not block storage and
+are linked to the accepted `trade_observation`. Existing warehouse identity is
+not a validation error; it remains an ingestion `SKIP` or `UPDATE` decision.
 
 On complete success the batch becomes `SUCCESS`. Accepted and rejected records
 together produce `PARTIAL`. A batch with no accepted observations becomes

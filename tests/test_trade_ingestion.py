@@ -64,6 +64,14 @@ PROVIDER_AREAS = [
         "isGroup": False,
     },
     {
+        "PartnerCode": 404,
+        "PartnerDesc": "Kenya",
+        "PartnerCodeIsoAlpha2": "KE",
+        "PartnerCodeIsoAlpha3": "KEN",
+        "entryEffectiveDate": "1900-01-01T00:00:00",
+        "isGroup": False,
+    },
+    {
         "PartnerCode": 788,
         "PartnerDesc": "Tunisia",
         "PartnerCodeIsoAlpha2": "TN",
@@ -88,7 +96,12 @@ def ingestion_database(db_session: Session) -> tuple[Session, db.StatDataset]:
     )
     db_session.add(canada)
     agency, codelist_id, version = CODELIST_IDENTITY
-    db_session.add(db.Agency(agency_id=agency, name="UNSD"))
+    db_session.add_all(
+        [
+            db.Agency(agency_id=agency, name="UNSD"),
+            db.Agency(agency_id="SDMX", name="SDMX"),
+        ]
+    )
     codelist = db.Codelist(
         agency_id=agency,
         codelist_id=codelist_id,
@@ -104,6 +117,58 @@ def ingestion_database(db_session: Session) -> tuple[Session, db.StatDataset]:
         db.Code(codelist_id=codelist.id, code=code)
         for code in ("W0", "KE", "TN")
     )
+    for codelist_agency, validation_id, validation_version, codes in (
+        ("SDMX", "CL_FREQ", "2.0", ("A", "Q", "M")),
+        ("UNSD", "CL_TRADE_FLOW", "1.0", ("M", "X")),
+        ("UNSD", "CL_COMMODITY", "1.0", ("SITC4_TOTAL",)),
+    ):
+        row = db.Codelist(
+            agency_id=codelist_agency,
+            codelist_id=validation_id,
+            version=validation_version,
+            name=validation_id,
+            source_url=f"https://fixtures.invalid/{validation_id}",
+            retrieved_at=datetime.now(timezone.utc),
+            checksum="c" * 64,
+        )
+        db_session.add(row)
+        db_session.flush()
+        db_session.add_all(db.Code(codelist_id=row.id, code=code) for code in codes)
+    dsd = db.DSD(
+        agency_id="UNSD",
+        dsd_id="IMTS",
+        version="1.2",
+        name="International Merchandise Trade Statistics",
+        source_url="https://fixtures.invalid/IMTS",
+        retrieved_at=datetime.now(timezone.utc),
+        checksum="d" * 64,
+    )
+    db_session.add(dsd)
+    db_session.flush()
+    for position, concept_id, codelist_identity in (
+        (1, "FREQ", ("SDMX", "CL_FREQ", "2.0")),
+        (2, "REF_AREA", ("UNSD", "CL_AREA", "1.0")),
+        (3, "TRADE_FLOW", ("UNSD", "CL_TRADE_FLOW", "1.0")),
+        (4, "COMMODITY_1", ("UNSD", "CL_COMMODITY", "1.0")),
+        (9, "COUNTERPART_AREA_1", ("UNSD", "CL_AREA", "1.0")),
+        (11, "COUNTERPART_AREA_2", ("UNSD", "CL_AREA", "1.0")),
+        (19, "TIME_PERIOD", None),
+    ):
+        db_session.add(
+            db.Dimension(
+                dsd_id=dsd.id,
+                concept_id=concept_id,
+                position=position,
+                role="time" if concept_id == "TIME_PERIOD" else "dimension",
+                codelist_agency_id=(
+                    codelist_identity[0] if codelist_identity else None
+                ),
+                codelist_id=(codelist_identity[1] if codelist_identity else None),
+                codelist_version=(
+                    codelist_identity[2] if codelist_identity else None
+                ),
+            )
+        )
     db_session.add(
         db.Dataflow(
             agency_id="UNSD",

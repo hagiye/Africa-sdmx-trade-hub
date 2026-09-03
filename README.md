@@ -16,8 +16,13 @@ SQLAlchemy
 PostgreSQL
 ```
 
-This phase manages structural metadata only. It does not ingest trade
-observations.
+The current implementation combines the SDMX metadata registry with canonical
+geography, bounded UN Comtrade ingestion, deterministic observation identity,
+revision handling, and rule-based validation. Validation findings are persisted
+for accepted warnings as well as rejected errors.
+
+See `docs/validation-engine.md` for the distinction between SDMX structural
+rules and application scope such as AU-reporter eligibility.
 
 ## SDMX Structure Discovery
 

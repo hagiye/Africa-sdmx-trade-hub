@@ -13,20 +13,23 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import models as db
-from app.mappings.geo import is_au_reporter
 from app.pipelines.observation_identity import (
     ObservationIdentity,
     build_dataset_identity,
     canonical_json,
     identify_observation,
 )
-from app.pipelines.trade_models import (
-    NormalizationIssueCode,
-    NormalizedTradeObservation,
-)
+from app.pipelines.trade_models import NormalizedTradeObservation
 from app.pipelines.trade_normalizer import normalize_trade_observation
 from app.sdmx.data_models import ParsedObservation
 from app.sdmx.data_parser import parse_comtrade_response
+from app.validation.context import ValidationContext
+from app.validation.engine import ValidationEngine, get_trade_validation_rules
+from app.validation.models import (
+    ValidationResult,
+    ValidationSeverity,
+    ValidationSummary,
+)
 
 
 ResponseFetcher = Callable[[str, dict[str, str]], Mapping[str, Any]]
@@ -188,51 +191,65 @@ def _reject(
     identity: ObservationIdentity | None = None,
     concept_id: str | None = None,
     invalid_value: object | None = None,
+) -> db.ObservationRejection:
+    rejection = db.ObservationRejection(
+        ingestion_batch_id=batch_id,
+        source_key=identity.source_key if identity else None,
+        source_key_hash=identity.source_key_hash if identity else None,
+        concept_id=concept_id,
+        invalid_value=None if invalid_value is None else str(invalid_value),
+        reason_code=reason,
+        severity=db.RejectionSeverity.ERROR,
+        message=message,
+        raw_observation=parsed.source_fields,
+    )
+    session.add(rejection)
+    session.flush()
+    return rejection
+
+
+def _rejection_reason(result: ValidationResult) -> db.RejectionReasonCode:
+    if result.rule_id == "MANDATORY_DIMENSION_PRESENT":
+        return db.RejectionReasonCode.MISSING_DIMENSION
+    if result.rule_id == "VALID_REFERENCE_AREA":
+        return db.RejectionReasonCode.UNMAPPED_REFERENCE_AREA
+    if result.rule_id == "REFERENCE_AREA_IS_AU_MEMBER":
+        return db.RejectionReasonCode.REFERENCE_AREA_NOT_AU_MEMBER
+    if result.rule_id == "VALID_TIME_PERIOD" and result.invalid_value is None:
+        return db.RejectionReasonCode.MISSING_TIME_PERIOD
+    if result.rule_id == "PRIMARY_VALUE_PRESENT":
+        return db.RejectionReasonCode.MISSING_PRIMARY_VALUE
+    if result.category.value == "CODELIST":
+        return db.RejectionReasonCode.INVALID_CODE
+    if result.category.value == "VALUE":
+        return db.RejectionReasonCode.INVALID_VALUE
+    return db.RejectionReasonCode.NORMALIZATION_ERROR
+
+
+def _persist_validation_results(
+    session: Session,
+    *,
+    batch_id: int,
+    summary: ValidationSummary,
+    observation_id: int | None = None,
+    rejection_id: int | None = None,
 ) -> None:
-    session.add(
-        db.ObservationRejection(
+    session.add_all(
+        db.ValidationFinding(
             ingestion_batch_id=batch_id,
-            source_key=identity.source_key if identity else None,
-            source_key_hash=identity.source_key_hash if identity else None,
-            concept_id=concept_id,
-            invalid_value=None if invalid_value is None else str(invalid_value),
-            reason_code=reason,
-            severity=db.RejectionSeverity.ERROR,
-            message=message,
-            raw_observation=parsed.source_fields,
+            observation_id=observation_id,
+            observation_rejection_id=rejection_id,
+            source_key_hash=result.source_key_hash,
+            rule_id=result.rule_id,
+            category=result.category.value,
+            severity=result.severity.value,
+            concept_id=result.concept_id,
+            invalid_value=result.invalid_value,
+            message=result.message,
+            metadata_json=result.metadata,
         )
+        for result in summary.results
     )
-
-
-def _normalization_rejection(
-    result_issues: list,
-) -> tuple[db.RejectionReasonCode, str | None, str]:
-    if not result_issues:
-        return (
-            db.RejectionReasonCode.NORMALIZATION_ERROR,
-            None,
-            "Normalizer returned no observation",
-        )
-    priorities = (
-        (
-            NormalizationIssueCode.UNMAPPED_REFERENCE_AREA,
-            db.RejectionReasonCode.UNMAPPED_REFERENCE_AREA,
-        ),
-        (
-            NormalizationIssueCode.MISSING_TIME_PERIOD,
-            db.RejectionReasonCode.MISSING_TIME_PERIOD,
-        ),
-        (
-            NormalizationIssueCode.MISSING_PRIMARY_VALUE,
-            db.RejectionReasonCode.MISSING_PRIMARY_VALUE,
-        ),
-    )
-    for issue_code, reason in priorities:
-        for issue in result_issues:
-            if issue.code is issue_code:
-                return reason, issue.concept_id, issue.message
-    issue = result_issues[0]
-    return db.RejectionReasonCode.NORMALIZATION_ERROR, issue.concept_id, issue.message
 
 
 def _observation_values(
@@ -275,7 +292,7 @@ def _store_observation(
     batch_id: int,
     observation: NormalizedTradeObservation,
     identity: ObservationIdentity,
-) -> str:
+) -> tuple[str, db.TradeObservation]:
     existing = session.scalar(
         select(db.TradeObservation).where(
             db.TradeObservation.dataset_id == dataset_id,
@@ -288,15 +305,14 @@ def _store_observation(
     if existing is None:
         try:
             with session.begin_nested():
-                session.add(
-                    db.TradeObservation(
-                        **values,
-                        first_ingestion_batch_id=batch_id,
-                        last_ingestion_batch_id=batch_id,
-                    )
+                inserted = db.TradeObservation(
+                    **values,
+                    first_ingestion_batch_id=batch_id,
+                    last_ingestion_batch_id=batch_id,
                 )
+                session.add(inserted)
                 session.flush()
-            return "INSERTED"
+            return "INSERTED", inserted
         except IntegrityError as exc:
             constraint_name = getattr(
                 getattr(exc.orig, "diag", None), "constraint_name", None
@@ -323,11 +339,11 @@ def _store_observation(
         # ``last_ingestion_batch_id`` means the last successful batch in which
         # the source observation was seen, even when its content was unchanged.
         existing.last_ingestion_batch_id = batch_id
-        return "SKIPPED"
+        return "SKIPPED", existing
     for field in REVISION_UPDATE_FIELDS:
         setattr(existing, field, values[field])
     existing.last_ingestion_batch_id = batch_id
-    return "UPDATED"
+    return "UPDATED", existing
 
 
 def ingest_trade_query(
@@ -363,6 +379,8 @@ def ingest_trade_query(
     raw_checksums: list[tuple[str, str]] = []
     content_checksums: list[tuple[str, str]] = []
     try:
+        validation_context = ValidationContext.from_session(session, dataset)
+        validation_engine = ValidationEngine(get_trade_validation_rules())
         for period in query.periods:
             payload = fetch_response(period, query.request_parameters(period))
             records = payload.get("data") if isinstance(payload, Mapping) else None
@@ -382,23 +400,6 @@ def ingest_trade_query(
             )
 
             for parsed in parsed_response.observations:
-                mismatch = _scope_mismatch(parsed, period, query)
-                if mismatch is not None:
-                    field, wanted, actual = mismatch
-                    _reject(
-                        session,
-                        batch_id=batch_id,
-                        parsed=parsed,
-                        reason=db.RejectionReasonCode.INVALID_VALUE,
-                        concept_id=field,
-                        invalid_value=actual,
-                        message=(
-                            f"Provider record is outside the controlled query: "
-                            f"expected {field}={wanted!r}, received {actual!r}"
-                        ),
-                    )
-                    counters.rejected += 1
-                    continue
                 try:
                     result = normalize_trade_observation(parsed, session)
                 except Exception as exc:
@@ -412,46 +413,69 @@ def ingest_trade_query(
                     counters.rejected += 1
                     continue
 
-                blocking_issues = [
-                    issue
-                    for issue in result.issues
-                    if issue.code is not NormalizationIssueCode.UNMAPPED_COUNTERPART_AREA
-                ]
-                if result.observation is None or blocking_issues:
-                    reason, concept_id, message = _normalization_rejection(
-                        blocking_issues or result.issues
-                    )
+                if result.observation is None:
                     _reject(
                         session,
                         batch_id=batch_id,
                         parsed=parsed,
-                        reason=reason,
-                        concept_id=concept_id,
-                        message=message,
+                        reason=db.RejectionReasonCode.NORMALIZATION_ERROR,
+                        message="Normalizer returned no validation candidate",
                     )
                     counters.rejected += 1
                     continue
 
                 observation = result.observation
+                summary = validation_engine.validate(
+                    observation, validation_context
+                )
                 identity = _identity_if_possible(observation, dataset_identity)
-                if not is_au_reporter(
-                    session,
-                    observation.source_agency,
-                    observation.source_system,
-                    observation.reference_area_source_code,
-                ):
-                    _reject(
+                if summary.should_reject:
+                    primary_result = next(
+                        finding
+                        for finding in summary.results
+                        if finding.severity
+                        in (ValidationSeverity.ERROR, ValidationSeverity.FATAL)
+                    )
+                    rejection = _reject(
                         session,
                         batch_id=batch_id,
                         parsed=parsed,
                         identity=identity,
-                        reason=db.RejectionReasonCode.REFERENCE_AREA_NOT_AU_MEMBER,
-                        concept_id="REF_AREA",
-                        invalid_value=observation.reference_area_source_code,
+                        reason=_rejection_reason(primary_result),
+                        concept_id=primary_result.concept_id,
+                        invalid_value=primary_result.invalid_value,
+                        message=primary_result.message,
+                    )
+                    _persist_validation_results(
+                        session,
+                        batch_id=batch_id,
+                        summary=summary,
+                        rejection_id=rejection.id,
+                    )
+                    counters.rejected += 1
+                    continue
+
+                mismatch = _scope_mismatch(parsed, period, query)
+                if mismatch is not None:
+                    field, wanted, actual = mismatch
+                    rejection = _reject(
+                        session,
+                        batch_id=batch_id,
+                        parsed=parsed,
+                        identity=identity,
+                        reason=db.RejectionReasonCode.INVALID_VALUE,
+                        concept_id=field,
+                        invalid_value=actual,
                         message=(
-                            "Reference area does not resolve to a canonical "
-                            "African Union Member State country"
+                            f"Provider record is outside the controlled query: "
+                            f"expected {field}={wanted!r}, received {actual!r}"
                         ),
+                    )
+                    _persist_validation_results(
+                        session,
+                        batch_id=batch_id,
+                        summary=summary,
+                        rejection_id=rejection.id,
                     )
                     counters.rejected += 1
                     continue
@@ -467,12 +491,18 @@ def ingest_trade_query(
                     continue
 
                 counters.accepted += 1
-                action = _store_observation(
+                action, stored = _store_observation(
                     session,
                     dataset_id=dataset.id,
                     batch_id=batch_id,
                     observation=observation,
                     identity=identity,
+                )
+                _persist_validation_results(
+                    session,
+                    batch_id=batch_id,
+                    summary=summary,
+                    observation_id=stored.id,
                 )
                 if action == "INSERTED":
                     counters.inserted += 1
