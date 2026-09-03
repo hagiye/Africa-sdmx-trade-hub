@@ -1,0 +1,354 @@
+{
+  "format": "AFRSTAT_CANONICAL_STRUCTURE_JSON",
+  "format_version": "1.0",
+  "is_sdmx_ml": false,
+  "agency": {
+    "id": "AFRSTAT",
+    "labels": {
+      "en": "African Statistics Demonstration Agency",
+      "fr": "Agence de démonstration des statistiques africaines"
+    }
+  },
+  "disclaimer": "AFRSTAT:AFR_TRADE is an independent portfolio demonstration structure and is not an official African Union or STATAFRIC SDMX artefact.",
+  "annotations": {
+    "purpose": "A deliberately compact target model for future harmonisation of African merchandise trade observations.",
+    "exchange_format_status": "This JSON is an internal canonical definition, not an SDMX-ML exchange artefact.",
+    "source_model": "UNSD:IMTS(1.2)",
+    "mapping_status": "No source-to-target observation or code mappings are implemented in Step 26A."
+  },
+  "dataflow": {
+    "id": "AFR_TRADE",
+    "version": "1.0",
+    "labels": {
+      "en": "African Harmonised Merchandise Trade",
+      "fr": "Commerce harmonisé de marchandises en Afrique"
+    },
+    "dsd_ref": {
+      "agency": "AFRSTAT",
+      "id": "AFR_TRADE",
+      "version": "1.0"
+    }
+  },
+  "concept_scheme": {
+    "id": "CS_AFR_TRADE",
+    "version": "1.0",
+    "labels": {
+      "en": "African Harmonised Merchandise Trade Concepts",
+      "fr": "Concepts du commerce harmonisé de marchandises en Afrique"
+    },
+    "concepts": [
+      {
+        "id": "FREQ",
+        "labels": {"en": "Frequency", "fr": "Fréquence"},
+        "description": "Frequency at which the observation is measured."
+      },
+      {
+        "id": "REF_AREA",
+        "labels": {"en": "Reporting economy", "fr": "Économie déclarante"},
+        "description": "Canonical reporting economy."
+      },
+      {
+        "id": "COUNTERPART_AREA",
+        "labels": {"en": "Counterpart economy or area", "fr": "Économie ou zone partenaire"},
+        "description": "Canonical partner country, region, or aggregate."
+      },
+      {
+        "id": "TRADE_FLOW",
+        "labels": {"en": "Trade flow", "fr": "Flux commercial"},
+        "description": "Direction of merchandise trade."
+      },
+      {
+        "id": "PRODUCT_SCHEME",
+        "labels": {"en": "Product classification", "fr": "Classification des produits"},
+        "description": "Classification system and edition used to interpret PRODUCT."
+      },
+      {
+        "id": "PRODUCT",
+        "labels": {"en": "Product", "fr": "Produit"},
+        "description": "Product code interpreted jointly with PRODUCT_SCHEME."
+      },
+      {
+        "id": "UNIT_MEASURE",
+        "labels": {"en": "Unit of measure", "fr": "Unité de mesure"},
+        "description": "Unit in which OBS_VALUE is expressed."
+      },
+      {
+        "id": "TIME_PERIOD",
+        "labels": {"en": "Time period", "fr": "Période"},
+        "description": "Observation period interpreted according to FREQ."
+      },
+      {
+        "id": "OBS_VALUE",
+        "labels": {"en": "Observation value", "fr": "Valeur observée"},
+        "description": "Numeric value of the statistical observation."
+      },
+      {
+        "id": "OBS_STATUS",
+        "labels": {"en": "Observation status", "fr": "Statut de l’observation"},
+        "description": "Quality or estimation status when established."
+      },
+      {
+        "id": "CONF_STATUS",
+        "labels": {"en": "Confidentiality status", "fr": "Statut de confidentialité"},
+        "description": "Publication confidentiality status when established."
+      },
+      {
+        "id": "UNIT_MULT",
+        "labels": {"en": "Unit multiplier", "fr": "Multiplicateur d’unité"},
+        "description": "Power-of-ten scaling applied to OBS_VALUE."
+      },
+      {
+        "id": "DECIMALS",
+        "labels": {"en": "Decimals", "fr": "Décimales"},
+        "description": "Number of decimal places appropriate for display."
+      },
+      {
+        "id": "SOURCE",
+        "labels": {"en": "Source", "fr": "Source"},
+        "description": "Controlled provenance identifier without URLs or credentials."
+      }
+    ]
+  },
+  "dsd": {
+    "id": "AFR_TRADE",
+    "version": "1.0",
+    "labels": {
+      "en": "African Harmonised Merchandise Trade Structure",
+      "fr": "Structure du commerce harmonisé de marchandises en Afrique"
+    },
+    "dimensions": [
+      {
+        "position": 1,
+        "id": "FREQ",
+        "role": "dimension",
+        "required": true,
+        "source_concepts": ["FREQ"],
+        "representation": "String",
+        "codelist": {"agency": "AFRSTAT", "id": "CL_FREQ", "version": "1.0"},
+        "notes": "Annual is the current ingestion scope; quarterly and monthly codes reserve a forward-compatible syntax."
+      },
+      {
+        "position": 2,
+        "id": "REF_AREA",
+        "role": "dimension",
+        "required": true,
+        "source_concepts": ["REF_AREA"],
+        "representation": "String",
+        "codelist": {"agency": "AFRSTAT", "id": "CL_AFR_AREA", "version": "1.0"},
+        "notes": "Uses canonical ISO alpha-2 identifiers for AU Member State countries."
+      },
+      {
+        "position": 3,
+        "id": "COUNTERPART_AREA",
+        "role": "dimension",
+        "required": true,
+        "source_concepts": ["COUNTERPART_AREA_1"],
+        "representation": "String",
+        "codelist": {"agency": "AFRSTAT", "id": "CL_AFR_AREA", "version": "1.0"},
+        "notes": "Simplifies the primary source counterpart; secondary counterpart is deferred."
+      },
+      {
+        "position": 4,
+        "id": "TRADE_FLOW",
+        "role": "dimension",
+        "required": true,
+        "source_concepts": ["TRADE_FLOW"],
+        "representation": "String",
+        "codelist": {"agency": "AFRSTAT", "id": "CL_TRADE_FLOW", "version": "1.0"},
+        "notes": "Uses explicit target codes rather than assuming provider codes are canonical."
+      },
+      {
+        "position": 5,
+        "id": "PRODUCT_SCHEME",
+        "role": "dimension",
+        "required": true,
+        "source_concepts": ["COMMODITY_1 classification context"],
+        "representation": "String",
+        "codelist": {"agency": "AFRSTAT", "id": "CL_PRODUCT_SCHEME", "version": "1.0"},
+        "notes": "Prevents product-code collisions across HS, SITC, and future classifications."
+      },
+      {
+        "position": 6,
+        "id": "PRODUCT",
+        "role": "dimension",
+        "required": true,
+        "source_concepts": ["COMMODITY_1"],
+        "representation": "String",
+        "codelist": {"agency": "AFRSTAT", "id": "CL_PRODUCT", "version": "1.0"},
+        "notes": "Version 1.0 contains only TOTAL; detailed classifications are deliberately deferred."
+      },
+      {
+        "position": 7,
+        "id": "UNIT_MEASURE",
+        "role": "dimension",
+        "required": true,
+        "source_concepts": ["MEASURE", "UNIT_MEASURE", "primaryValue semantics"],
+        "representation": "String",
+        "codelist": {"agency": "AFRSTAT", "id": "CL_UNIT_MEASURE", "version": "1.0"},
+        "notes": "The target can express USD trade value, but assigning the current source primaryValue is deferred until mapping evidence is approved."
+      },
+      {
+        "position": 8,
+        "id": "TIME_PERIOD",
+        "role": "time",
+        "required": true,
+        "source_concepts": ["TIME_PERIOD"],
+        "representation": "ObservationalTimePeriod",
+        "codelist": null,
+        "notes": "Format is interpreted together with FREQ."
+      }
+    ],
+    "attributes": [
+      {
+        "id": "OBS_STATUS",
+        "attachment_level": "Observation",
+        "required": false,
+        "source_concepts": ["OBS_STATUS", "provider estimation flags"],
+        "representation": "String",
+        "codelist": {"agency": "AFRSTAT", "id": "CL_OBS_STATUS", "version": "1.0"},
+        "notes": "Conditional until source status semantics are mapped."
+      },
+      {
+        "id": "CONF_STATUS",
+        "attachment_level": "Observation",
+        "required": false,
+        "source_concepts": ["COMMODITY_1_CONF", "COUNTERPART_AREA_1_CONF"],
+        "representation": "String",
+        "codelist": {"agency": "AFRSTAT", "id": "CL_CONF_STATUS", "version": "1.0"},
+        "notes": "Structural support only; confidentiality fields are not exposed in current simplified JSON fixtures."
+      },
+      {
+        "id": "UNIT_MULT",
+        "attachment_level": "Observation",
+        "required": true,
+        "source_concepts": ["UNIT_MULT"],
+        "representation": "Integer",
+        "codelist": {"agency": "AFRSTAT", "id": "CL_UNIT_MULT", "version": "1.0"},
+        "notes": "MVP permits only unscaled values."
+      },
+      {
+        "id": "DECIMALS",
+        "attachment_level": "Observation",
+        "required": false,
+        "source_concepts": [],
+        "representation": "Integer(min=0,max=12)",
+        "codelist": null,
+        "notes": "Target display metadata; derivation is deferred."
+      },
+      {
+        "id": "SOURCE",
+        "attachment_level": "Observation",
+        "required": true,
+        "source_concepts": ["source system metadata"],
+        "representation": "String",
+        "codelist": {"agency": "AFRSTAT", "id": "CL_SOURCE", "version": "1.0"},
+        "notes": "Controlled provenance code only; never an observation-level URL or credential."
+      }
+    ],
+    "measures": [
+      {
+        "id": "OBS_VALUE",
+        "role": "primary_measure",
+        "representation": "Decimal",
+        "source_concepts": ["provider primaryValue selected under source MEASURE semantics"],
+        "notes": "OBS_VALUE is numeric; MEASURE identifies what is measured and UNIT_MEASURE identifies its unit."
+      }
+    ]
+  },
+  "codelists": [
+    {
+      "id": "CL_AFR_AREA",
+      "version": "1.0",
+      "labels": {"en": "African trade areas", "fr": "Zones du commerce africain"},
+      "codes_from": {
+        "type": "canonical_au_member_geography",
+        "path": "data/reference/au_member_states.json",
+        "code_field": "iso2"
+      },
+      "codes": [
+        {
+          "id": "AFR_WORLD",
+          "labels": {"en": "World", "fr": "Monde"},
+          "annotations": {"area_type": "AGGREGATE", "is_iso_country": false}
+        }
+      ]
+    },
+    {
+      "id": "CL_TRADE_FLOW",
+      "version": "1.0",
+      "labels": {"en": "Canonical trade flows", "fr": "Flux commerciaux canoniques"},
+      "codes": [
+        {"id": "IMPORT", "labels": {"en": "Imports", "fr": "Importations"}},
+        {"id": "EXPORT", "labels": {"en": "Exports", "fr": "Exportations"}}
+      ]
+    },
+    {
+      "id": "CL_FREQ",
+      "version": "1.0",
+      "labels": {"en": "Frequencies", "fr": "Fréquences"},
+      "codes": [
+        {"id": "A", "labels": {"en": "Annual", "fr": "Annuel"}},
+        {"id": "Q", "labels": {"en": "Quarterly", "fr": "Trimestriel"}},
+        {"id": "M", "labels": {"en": "Monthly", "fr": "Mensuel"}}
+      ]
+    },
+    {
+      "id": "CL_PRODUCT_SCHEME",
+      "version": "1.0",
+      "labels": {"en": "Product classification schemes", "fr": "Systèmes de classification des produits"},
+      "codes": [
+        {"id": "SITC4", "labels": {"en": "SITC Revision 4", "fr": "CTCI Révision 4"}}
+      ]
+    },
+    {
+      "id": "CL_PRODUCT",
+      "version": "1.0",
+      "labels": {"en": "MVP product codes", "fr": "Codes produits du MVP"},
+      "codes": [
+        {"id": "TOTAL", "labels": {"en": "All products", "fr": "Tous les produits"}}
+      ]
+    },
+    {
+      "id": "CL_UNIT_MEASURE",
+      "version": "1.0",
+      "labels": {"en": "Units of measure", "fr": "Unités de mesure"},
+      "codes": [
+        {"id": "USD", "labels": {"en": "United States dollar", "fr": "Dollar des États-Unis"}}
+      ]
+    },
+    {
+      "id": "CL_OBS_STATUS",
+      "version": "1.0",
+      "labels": {"en": "Observation statuses", "fr": "Statuts des observations"},
+      "codes": [
+        {"id": "AVAILABLE", "labels": {"en": "Available without assigned qualification", "fr": "Disponible sans qualification attribuée"}},
+        {"id": "ESTIMATED", "labels": {"en": "Estimated", "fr": "Estimé"}}
+      ]
+    },
+    {
+      "id": "CL_CONF_STATUS",
+      "version": "1.0",
+      "labels": {"en": "Confidentiality statuses", "fr": "Statuts de confidentialité"},
+      "codes": [
+        {"id": "PUBLIC", "labels": {"en": "Not confidential", "fr": "Non confidentiel"}},
+        {"id": "CONFIDENTIAL", "labels": {"en": "Confidential", "fr": "Confidentiel"}}
+      ]
+    },
+    {
+      "id": "CL_UNIT_MULT",
+      "version": "1.0",
+      "labels": {"en": "Unit multipliers", "fr": "Multiplicateurs d’unité"},
+      "codes": [
+        {"id": "0", "labels": {"en": "Units", "fr": "Unités"}}
+      ]
+    },
+    {
+      "id": "CL_SOURCE",
+      "version": "1.0",
+      "labels": {"en": "Data sources", "fr": "Sources de données"},
+      "codes": [
+        {"id": "UN_COMTRADE", "labels": {"en": "UNSD UN Comtrade", "fr": "UN Comtrade de l’UNSD"}}
+      ]
+    }
+  ]
+}

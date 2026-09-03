@@ -24,6 +24,11 @@ for accepted warnings as well as rejected errors.
 See `docs/validation-engine.md` for the distinction between SDMX structural
 rules and application scope such as AU-reporter eligibility.
 
+The independent canonical target design is documented in
+`docs/afr-trade-model.md`. `AFRSTAT:AFR_TRADE(1.0)` is a portfolio demonstration
+structure, not an official African Union or STATAFRIC artefact; no source data
+is transformed into it yet.
+
 ## SDMX Structure Discovery
 
 The project discovers and imports four related SDMX structure types:
