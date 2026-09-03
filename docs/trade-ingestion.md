@@ -111,6 +111,39 @@ The final protection is PostgreSQL's
 if two workers race after both application-level lookups find no row. No
 distributed lock is introduced.
 
+## Source revisions
+
+The ingestion decision is based on identity first and revision-sensitive
+content second:
+
+| Identity exists | Content same | Action |
+|---|---|---|
+| No | N/A | `INSERT` |
+| Yes | Yes | `SKIP` |
+| Yes | No | `UPDATE` |
+
+An invalid or unacceptable record produces `REJECT`, giving the ingestion
+pipeline four core outcomes: `INSERT`, `SKIP`, `UPDATE`, and `REJECT`.
+
+For the synthetic revision test, the 2023 Tunisia imports-from-World record
+starts with `primaryValue=25930493874.99` and is revised to
+`25930494874.99`. This is explicitly test-only data, not a claim about UN
+Comtrade. Reporter, counterpart, frequency, flow, commodity, and period remain
+unchanged, so the source-key hash remains
+`5cdc4a7acff5b1f28e7c0b7f2f011713717ac79da80e59cfff07d40a1218b5b3`.
+The content hash changes from
+`824c0e9a3b54e19772b079fb25a81bc1782c1ec068bc5511340d4e00ad1a7b6b`
+to `35d9b614ab63c0cf39eb6669baa41842c2d1e34cfcf815b9664a7d71369f5d7b`.
+The existing row is therefore updated rather than duplicated.
+
+Revision updates replace supported statistical values, meaningful source
+attributes, the latest complete `source_fields`, the content hash, and
+`last_ingestion_batch_id`. The ORM advances `updated_at`. They preserve the row
+ID, dataset, source key/hash, normalized identity fields, source dimensions,
+`created_at`, and `first_ingestion_batch_id`. If an identifying dimension such
+as `TIME_PERIOD` changes, the source-key hash changes and the record is inserted
+as a new statistical observation instead.
+
 ## Step 24B observed result
 
 The controlled second live batch received, parsed, and accepted the same three

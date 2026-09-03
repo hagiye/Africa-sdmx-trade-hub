@@ -31,6 +31,18 @@ from app.sdmx.data_parser import parse_comtrade_response
 
 ResponseFetcher = Callable[[str, dict[str, str]], Mapping[str, Any]]
 
+REVISION_UPDATE_FIELDS = (
+    "primary_value",
+    "quantity",
+    "net_weight",
+    "gross_weight",
+    "cif_value",
+    "fob_value",
+    "source_attributes",
+    "source_fields",
+    "observation_content_hash",
+)
+
 
 class TradeIngestionError(RuntimeError):
     """Fatal ingestion failure whose batch has already been finalized."""
@@ -312,9 +324,8 @@ def _store_observation(
         # the source observation was seen, even when its content was unchanged.
         existing.last_ingestion_batch_id = batch_id
         return "SKIPPED"
-    for field, value in values.items():
-        if field != "dataset_id":
-            setattr(existing, field, value)
+    for field in REVISION_UPDATE_FIELDS:
+        setattr(existing, field, values[field])
     existing.last_ingestion_batch_id = batch_id
     return "UPDATED"
 
