@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from decimal import Decimal
 from enum import StrEnum
 
 from sqlalchemy import (
@@ -14,12 +15,15 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -39,6 +43,30 @@ class MappingStatus(StrEnum):
     AUTO_MATCHED = "AUTO_MATCHED"
     MANUAL = "MANUAL"
     UNMAPPED = "UNMAPPED"
+
+
+class IngestionBatchStatus(StrEnum):
+    RUNNING = "RUNNING"
+    SUCCESS = "SUCCESS"
+    PARTIAL = "PARTIAL"
+    FAILED = "FAILED"
+
+
+class RejectionReasonCode(StrEnum):
+    MISSING_DIMENSION = "MISSING_DIMENSION"
+    INVALID_CODE = "INVALID_CODE"
+    INVALID_VALUE = "INVALID_VALUE"
+    UNMAPPED_REFERENCE_AREA = "UNMAPPED_REFERENCE_AREA"
+    UNMAPPED_COUNTERPART_AREA = "UNMAPPED_COUNTERPART_AREA"
+    MALFORMED_OBSERVATION = "MALFORMED_OBSERVATION"
+
+
+class RejectionSeverity(StrEnum):
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+
+
+JSON_DOCUMENT = JSON().with_variant(JSONB(), "postgresql")
 
 
 class TimestampMixin:
@@ -348,3 +376,228 @@ class StructureImport(Base):
     structures_updated: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     checksum_changes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     error_message: Mapped[str | None] = mapped_column(Text)
+
+
+class StatDataset(TimestampMixin, Base):
+    """One source statistical dataset, identified independently of its label."""
+
+    __tablename__ = "stat_dataset"
+    __table_args__ = (
+        UniqueConstraint(
+            "agency",
+            "dataflow_id",
+            "dataflow_version",
+            name="uq_stat_dataset_source_identity",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    agency: Mapped[str] = mapped_column(String(128), nullable=False)
+    dataflow_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    dataflow_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    dsd_agency: Mapped[str] = mapped_column(String(128), nullable=False)
+    dsd_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    dsd_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    name: Mapped[str] = mapped_column(String(1024), nullable=False)
+    source_system: Mapped[str] = mapped_column(String(128), nullable=False)
+    source_url: Mapped[str | None] = mapped_column(Text)
+
+
+class IngestionBatch(TimestampMixin, Base):
+    """Audit envelope for a future observation-ingestion attempt."""
+
+    __tablename__ = "ingestion_batch"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('RUNNING', 'SUCCESS', 'PARTIAL', 'FAILED')",
+            name="ck_ingestion_batch_status",
+        ),
+        Index("ix_ingestion_batch_dataset_id", "dataset_id"),
+        Index("ix_ingestion_batch_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    dataset_id: Mapped[int] = mapped_column(
+        ForeignKey("stat_dataset.id"), nullable=False
+    )
+    source_system: Mapped[str] = mapped_column(String(128), nullable=False)
+    query_key: Mapped[str | None] = mapped_column(String(1024))
+    query_parameters: Mapped[dict[str, object] | None] = mapped_column(JSON_DOCUMENT)
+    start_period: Mapped[str | None] = mapped_column(String(64))
+    end_period: Mapped[str | None] = mapped_column(String(64))
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[IngestionBatchStatus] = mapped_column(
+        SAEnum(
+            IngestionBatchStatus,
+            name="ingestion_batch_status",
+            native_enum=False,
+            create_constraint=False,
+            validate_strings=True,
+        ),
+        default=IngestionBatchStatus.RUNNING,
+        server_default=text("'RUNNING'"),
+        nullable=False,
+    )
+    observations_received: Mapped[int] = mapped_column(
+        Integer, default=0, server_default=text("0"), nullable=False
+    )
+    observations_parsed: Mapped[int] = mapped_column(
+        Integer, default=0, server_default=text("0"), nullable=False
+    )
+    observations_accepted: Mapped[int] = mapped_column(
+        Integer, default=0, server_default=text("0"), nullable=False
+    )
+    observations_inserted: Mapped[int] = mapped_column(
+        Integer, default=0, server_default=text("0"), nullable=False
+    )
+    observations_updated: Mapped[int] = mapped_column(
+        Integer, default=0, server_default=text("0"), nullable=False
+    )
+    observations_skipped: Mapped[int] = mapped_column(
+        Integer, default=0, server_default=text("0"), nullable=False
+    )
+    observations_rejected: Mapped[int] = mapped_column(
+        Integer, default=0, server_default=text("0"), nullable=False
+    )
+    raw_response_checksum: Mapped[str | None] = mapped_column(String(64))
+    statistical_content_checksum: Mapped[str | None] = mapped_column(String(64))
+    error_message: Mapped[str | None] = mapped_column(Text)
+
+
+class TradeObservation(TimestampMixin, Base):
+    """Current warehouse representation of one normalized trade observation."""
+
+    __tablename__ = "trade_observation"
+    __table_args__ = (
+        UniqueConstraint(
+            "dataset_id",
+            "source_key_hash",
+            name="uq_trade_observation_dataset_source_key_hash",
+        ),
+        Index("ix_trade_observation_dataset_id", "dataset_id"),
+        Index("ix_trade_observation_reference_geo_id", "reference_geo_id"),
+        Index("ix_trade_observation_counterpart_geo_id", "counterpart_geo_id"),
+        Index("ix_trade_observation_trade_flow_code", "trade_flow_code"),
+        Index("ix_trade_observation_frequency_code", "frequency_code"),
+        Index("ix_trade_observation_commodity_code", "commodity_code"),
+        Index("ix_trade_observation_time_period", "time_period"),
+        Index("ix_trade_observation_source_key_hash", "source_key_hash"),
+        Index(
+            "ix_trade_observation_dataset_reference_period",
+            "dataset_id",
+            "reference_geo_id",
+            "time_period",
+        ),
+        Index(
+            "ix_trade_observation_dataset_reference_counterpart",
+            "dataset_id",
+            "reference_geo_id",
+            "counterpart_geo_id",
+        ),
+        Index(
+            "ix_trade_observation_dataset_flow_period",
+            "dataset_id",
+            "trade_flow_code",
+            "time_period",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    dataset_id: Mapped[int] = mapped_column(
+        ForeignKey("stat_dataset.id"), nullable=False
+    )
+    reference_area_source_code: Mapped[str] = mapped_column(
+        String(128), nullable=False
+    )
+    reference_geo_id: Mapped[int] = mapped_column(
+        ForeignKey("geo_area.id"), nullable=False
+    )
+    counterpart_area_source_code: Mapped[str | None] = mapped_column(String(128))
+    counterpart_geo_id: Mapped[int | None] = mapped_column(ForeignKey("geo_area.id"))
+    trade_flow_code: Mapped[str | None] = mapped_column(String(128))
+    frequency_code: Mapped[str | None] = mapped_column(String(64))
+    commodity_code: Mapped[str | None] = mapped_column(String(255))
+    commodity_classification: Mapped[str | None] = mapped_column(String(128))
+    commodity_sdmx_code: Mapped[str | None] = mapped_column(String(255))
+    time_period: Mapped[str | None] = mapped_column(String(64))
+    primary_value: Mapped[Decimal | None] = mapped_column(Numeric())
+    quantity: Mapped[Decimal | None] = mapped_column(Numeric())
+    net_weight: Mapped[Decimal | None] = mapped_column(Numeric())
+    gross_weight: Mapped[Decimal | None] = mapped_column(Numeric())
+    cif_value: Mapped[Decimal | None] = mapped_column(Numeric())
+    fob_value: Mapped[Decimal | None] = mapped_column(Numeric())
+    source_dimensions: Mapped[dict[str, object]] = mapped_column(
+        JSON_DOCUMENT, nullable=False
+    )
+    source_attributes: Mapped[dict[str, object]] = mapped_column(
+        JSON_DOCUMENT, nullable=False
+    )
+    source_fields: Mapped[dict[str, object]] = mapped_column(
+        JSON_DOCUMENT, nullable=False
+    )
+    source_key: Mapped[str] = mapped_column(Text, nullable=False)
+    source_key_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    observation_content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    first_ingestion_batch_id: Mapped[int] = mapped_column(
+        ForeignKey("ingestion_batch.id"), nullable=False
+    )
+    last_ingestion_batch_id: Mapped[int] = mapped_column(
+        ForeignKey("ingestion_batch.id"), nullable=False
+    )
+
+
+class ObservationRejection(Base):
+    """Stored evidence for one rejected source observation."""
+
+    __tablename__ = "observation_rejection"
+    __table_args__ = (
+        CheckConstraint(
+            "reason_code IN ('MISSING_DIMENSION', 'INVALID_CODE', "
+            "'INVALID_VALUE', 'UNMAPPED_REFERENCE_AREA', "
+            "'UNMAPPED_COUNTERPART_AREA', 'MALFORMED_OBSERVATION')",
+            name="ck_observation_rejection_reason_code",
+        ),
+        CheckConstraint(
+            "severity IN ('WARNING', 'ERROR')",
+            name="ck_observation_rejection_severity",
+        ),
+        Index("ix_observation_rejection_ingestion_batch_id", "ingestion_batch_id"),
+        Index("ix_observation_rejection_reason_code", "reason_code"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ingestion_batch_id: Mapped[int] = mapped_column(
+        ForeignKey("ingestion_batch.id"), nullable=False
+    )
+    source_key: Mapped[str | None] = mapped_column(Text)
+    source_key_hash: Mapped[str | None] = mapped_column(String(64))
+    concept_id: Mapped[str | None] = mapped_column(String(255))
+    invalid_value: Mapped[str | None] = mapped_column(Text)
+    reason_code: Mapped[RejectionReasonCode] = mapped_column(
+        SAEnum(
+            RejectionReasonCode,
+            name="observation_rejection_reason_code",
+            native_enum=False,
+            create_constraint=False,
+            validate_strings=True,
+        ),
+        nullable=False,
+    )
+    severity: Mapped[RejectionSeverity] = mapped_column(
+        SAEnum(
+            RejectionSeverity,
+            name="observation_rejection_severity",
+            native_enum=False,
+            create_constraint=False,
+            validate_strings=True,
+        ),
+        nullable=False,
+    )
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    raw_observation: Mapped[dict[str, object] | None] = mapped_column(JSON_DOCUMENT)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
