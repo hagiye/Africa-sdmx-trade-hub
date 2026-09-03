@@ -163,9 +163,6 @@ def normalize_trade_observation(
             )
         )
 
-    if reference is None or reference_source_code is None:
-        return NormalizationResult(observation=None, issues=issues)
-
     source_dsd, source_dsd_version = _source_dsd_identity(session, observation)
     normalized = NormalizedTradeObservation(
         source_agency=source_agency,
@@ -175,12 +172,12 @@ def normalize_trade_observation(
         source_dsd=source_dsd,
         source_dsd_version=source_dsd_version,
         reference_area_source_code=reference_source_code,
-        reference_geo_id=reference.id,
-        reference_iso2=reference.iso2,
-        reference_iso3=reference.iso3,
-        reference_name=reference.name_en,
-        reference_area_type=reference.area_type,
-        reference_is_au_member=reference.au_member,
+        reference_geo_id=reference.id if reference else None,
+        reference_iso2=reference.iso2 if reference else None,
+        reference_iso3=reference.iso3 if reference else None,
+        reference_name=reference.name_en if reference else None,
+        reference_area_type=reference.area_type if reference else None,
+        reference_is_au_member=reference.au_member if reference else None,
         counterpart_area_source_code=counterpart_source_code,
         counterpart_geo_id=counterpart.id if counterpart else None,
         counterpart_iso2=counterpart.iso2 if counterpart else None,

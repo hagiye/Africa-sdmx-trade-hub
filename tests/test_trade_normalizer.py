@@ -275,7 +275,7 @@ def test_synthetic_non_au_reporter_is_normalized_without_filtering(
     assert result.observation.reference_is_au_member is False
 
 
-def test_unmapped_reporter_produces_fatal_issue_without_fake_geography(
+def test_unmapped_reporter_preserves_candidate_without_fake_geography(
     normalization_session: Session,
 ) -> None:
     base = _load_real_observation(FIXTURE_PATHS[0])
@@ -288,7 +288,10 @@ def test_unmapped_reporter_produces_fatal_issue_without_fake_geography(
 
     result = normalize_trade_observation(synthetic, normalization_session)
 
-    assert result.observation is None
+    assert result.observation is not None
+    assert result.observation.reference_area_source_code == "999999"
+    assert result.observation.reference_geo_id is None
+    assert result.observation.reference_name is None
     assert result.has_fatal_issues is True
     assert [(issue.code, issue.source_code, issue.fatal) for issue in result.issues] == [
         (NormalizationIssueCode.UNMAPPED_REFERENCE_AREA, "999999", True)

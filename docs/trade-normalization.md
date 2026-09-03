@@ -92,9 +92,12 @@ future batch. Current codes are:
 - `MISSING_TIME_PERIOD`
 - `MISSING_PRIMARY_VALUE`
 
-An unmapped reference area is fatal for that normalized record because reporter
-identity and AU eligibility cannot be established. The result contains issues
-but no `NormalizedTradeObservation`; no geography is fabricated.
+An unmapped reference area is marked as a fatal normalization issue because
+reporter identity and AU eligibility cannot be established. The result still
+contains a `NormalizedTradeObservation` candidate with the source code and null
+canonical fields so the validation layer can emit `VALID_REFERENCE_AREA`
+without fabricating geography. Persistence is impossible unless validation
+accepts the candidate.
 
 An unmapped counterpart is nonfatal. The result can contain a normalized
 observation with the original counterpart source code, null canonical
@@ -103,9 +106,9 @@ record for a later ingestion-policy decision.
 
 ## Boundary with later steps
 
-Normalization interprets parsed evidence. It is distinct from:
+Normalization interprets and preserves parsed evidence. It is distinct from:
 
-- validation, which will apply broader consistency and quality rules;
+- validation, which applies broader consistency and quality rules;
 - filtering, which will decide whether a reporter or record is in dataset scope;
 - persistence, which will manage ingestion batches, deduplication, acceptance,
   rejection, and warehouse writes.

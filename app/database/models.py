@@ -608,3 +608,51 @@ class ObservationRejection(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class ValidationFinding(Base):
+    """Persistent INFO/WARNING/ERROR/FATAL produced by a validation rule."""
+
+    __tablename__ = "validation_result"
+    __table_args__ = (
+        CheckConstraint(
+            "category IN ('STRUCTURE', 'CODELIST', 'VALUE', 'GEOGRAPHY', "
+            "'APPLICATION_SCOPE', 'QUALITY')",
+            name="ck_validation_result_category",
+        ),
+        CheckConstraint(
+            "severity IN ('INFO', 'WARNING', 'ERROR', 'FATAL')",
+            name="ck_validation_result_severity",
+        ),
+        Index("ix_validation_result_ingestion_batch_id", "ingestion_batch_id"),
+        Index("ix_validation_result_observation_id", "observation_id"),
+        Index(
+            "ix_validation_result_observation_rejection_id",
+            "observation_rejection_id",
+        ),
+        Index("ix_validation_result_rule_severity", "rule_id", "severity"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ingestion_batch_id: Mapped[int] = mapped_column(
+        ForeignKey("ingestion_batch.id", ondelete="CASCADE"), nullable=False
+    )
+    observation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("trade_observation.id", ondelete="SET NULL")
+    )
+    observation_rejection_id: Mapped[int | None] = mapped_column(
+        ForeignKey("observation_rejection.id", ondelete="CASCADE")
+    )
+    source_key_hash: Mapped[str | None] = mapped_column(String(64))
+    rule_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    category: Mapped[str] = mapped_column(String(32), nullable=False)
+    severity: Mapped[str] = mapped_column(String(7), nullable=False)
+    concept_id: Mapped[str | None] = mapped_column(String(255))
+    invalid_value: Mapped[str | None] = mapped_column(Text)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    metadata_json: Mapped[dict[str, object]] = mapped_column(
+        "metadata", JSON_DOCUMENT, default=dict, nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

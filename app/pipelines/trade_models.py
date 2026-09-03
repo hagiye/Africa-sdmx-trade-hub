@@ -36,13 +36,13 @@ class NormalizedTradeObservation(BaseModel):
     source_dsd: str | None = None
     source_dsd_version: str | None = None
 
-    reference_area_source_code: str
-    reference_geo_id: int
+    reference_area_source_code: str | None = None
+    reference_geo_id: int | None = None
     reference_iso2: str | None = None
     reference_iso3: str | None = None
-    reference_name: str
-    reference_area_type: AreaType
-    reference_is_au_member: bool
+    reference_name: str | None = None
+    reference_area_type: AreaType | None = None
+    reference_is_au_member: bool | None = None
 
     counterpart_area_source_code: str | None = None
     counterpart_geo_id: int | None = None
