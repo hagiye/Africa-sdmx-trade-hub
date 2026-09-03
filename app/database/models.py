@@ -58,6 +58,10 @@ class RejectionReasonCode(StrEnum):
     INVALID_VALUE = "INVALID_VALUE"
     UNMAPPED_REFERENCE_AREA = "UNMAPPED_REFERENCE_AREA"
     UNMAPPED_COUNTERPART_AREA = "UNMAPPED_COUNTERPART_AREA"
+    REFERENCE_AREA_NOT_AU_MEMBER = "REFERENCE_AREA_NOT_AU_MEMBER"
+    MISSING_TIME_PERIOD = "MISSING_TIME_PERIOD"
+    MISSING_PRIMARY_VALUE = "MISSING_PRIMARY_VALUE"
+    NORMALIZATION_ERROR = "NORMALIZATION_ERROR"
     MALFORMED_OBSERVATION = "MALFORMED_OBSERVATION"
 
 
@@ -557,7 +561,9 @@ class ObservationRejection(Base):
         CheckConstraint(
             "reason_code IN ('MISSING_DIMENSION', 'INVALID_CODE', "
             "'INVALID_VALUE', 'UNMAPPED_REFERENCE_AREA', "
-            "'UNMAPPED_COUNTERPART_AREA', 'MALFORMED_OBSERVATION')",
+            "'UNMAPPED_COUNTERPART_AREA', 'REFERENCE_AREA_NOT_AU_MEMBER', "
+            "'MISSING_TIME_PERIOD', 'MISSING_PRIMARY_VALUE', "
+            "'NORMALIZATION_ERROR', 'MALFORMED_OBSERVATION')",
             name="ck_observation_rejection_reason_code",
         ),
         CheckConstraint(
@@ -583,6 +589,7 @@ class ObservationRejection(Base):
             native_enum=False,
             create_constraint=False,
             validate_strings=True,
+            length=32,
         ),
         nullable=False,
     )
