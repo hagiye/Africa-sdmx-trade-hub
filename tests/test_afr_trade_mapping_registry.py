@@ -436,4 +436,6 @@ def test_registry_contains_mapping_metadata_only(mapping_session: Session) -> No
     assert mapping_session.scalar(
         select(func.count()).select_from(db.TradeObservation)
     ) == 0
-    assert "AfrTradeObservation" not in vars(db)
+    assert mapping_session.scalar(
+        select(func.count()).select_from(db.AfrTradeObservation)
+    ) == 0

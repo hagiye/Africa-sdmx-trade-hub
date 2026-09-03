@@ -18,16 +18,33 @@ PostgreSQL
 
 The current implementation combines the SDMX metadata registry with canonical
 geography, bounded UN Comtrade ingestion, deterministic observation identity,
-revision handling, and rule-based validation. Validation findings are persisted
-for accepted warnings as well as rejected errors.
+revision handling, rule-based validation, and a governed AFR_TRADE target
+warehouse. Validation and harmonization rejection evidence is persisted.
+
+```text
+UN Comtrade
+    |
+UNSD source warehouse
+    |
+source validation
+    |
+mapping registry
+    |
+AFR_TRADE transformation
+    |
+target validation
+    |
+AFR_TRADE harmonised warehouse
+    |
+statistical REST API
+```
 
 See `docs/validation-engine.md` for the distinction between SDMX structural
 rules and application scope such as AU-reporter eligibility.
 
 The independent canonical target design is documented in
 `docs/afr-trade-model.md`. `AFRSTAT:AFR_TRADE(1.0)` is a portfolio demonstration
-structure, not an official African Union or STATAFRIC artefact; no source data
-is transformed into it yet.
+structure, not an official African Union or STATAFRIC artefact.
 
 ## SDMX Structure Discovery
 
@@ -117,6 +134,19 @@ python scripts/transform_trade_fixtures.py
 python scripts/show_harmonization_trace.py
 ```
 
+## AFR_TRADE persistence and API
+
+The target-valid-only persistence lifecycle, mapping-version policy, lineage,
+quality reporting, and read-only statistical REST API are documented in
+[`docs/afr-trade-persistence.md`](docs/afr-trade-persistence.md).
+
+```powershell
+python scripts/harmonize_trade_data.py
+python scripts/show_afr_trade_warehouse.py
+python scripts/report_harmonization_quality.py
+python scripts/show_observation_lineage.py
+```
+
 Live integration tests are explicit and are excluded from the deterministic
 default suite:
 
@@ -137,5 +167,41 @@ pytest -m integration -v
 - `/api/v1/codelists`
 - `/api/v1/codelists/{agency}/{codelist_id}/{version}`
 - `/api/v1/codelists/{agency}/{codelist_id}/{version}/codes`
+- `/api/v1/afr-trade`
+- `/api/v1/afr-trade/{observation_id}`
+- `/api/v1/afr-trade/metadata`
+
+## Data Explorer
+
+The recruiter-facing React and TypeScript application in `frontend/` presents
+the project as a restrained statistical dissemination portal. It includes:
+
+- Home — live statistical coverage and pipeline summary
+- Data Explorer — explicit filters, labelled table, time-series chart, filtered
+  CSV export, and exact API-query viewer
+- Metadata — target components and bilingual codelists
+- Validation — stored validation summaries, rules, and findings
+- Harmonisation — batch counts, mapping matrix, rejection evidence, and lineage
+- Architecture, API, and About — system context, access points, attribution, and
+  the non-official disclaimer
+
+Run the backend and frontend separately during development:
+
+```powershell
+# Terminal 1 — backend
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+
+# Terminal 2 — frontend
+cd frontend
+npm install
+npm run dev
+```
+
+`VITE_API_BASE_URL` may point to an explicit backend origin. When unset, the
+Vite development proxy and future same-origin deployments use relative API
+URLs. Production static hosting is intentionally not configured in Step 27.
+
+Verified application screenshots belong in `docs/screenshots/`; the repository
+does not include fabricated placeholders.
 
 Independent portfolio demonstration project. Not an official African Union or STATAFRIC platform.

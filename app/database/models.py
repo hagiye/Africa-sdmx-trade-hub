@@ -68,6 +68,28 @@ class IngestionBatchStatus(StrEnum):
     FAILED = "FAILED"
 
 
+class HarmonizationBatchStatus(StrEnum):
+    RUNNING = "RUNNING"
+    SUCCESS = "SUCCESS"
+    PARTIAL = "PARTIAL"
+    FAILED = "FAILED"
+
+
+class HarmonizationRejectionReason(StrEnum):
+    SOURCE_VALIDATION_FAILED = "SOURCE_VALIDATION_FAILED"
+    MISSING_CONCEPT_MAPPING = "MISSING_CONCEPT_MAPPING"
+    MISSING_CODE_MAPPING = "MISSING_CODE_MAPPING"
+    UNCONFIRMED_MAPPING = "UNCONFIRMED_MAPPING"
+    DEPRECATED_MAPPING = "DEPRECATED_MAPPING"
+    DEFERRED_MAPPING = "DEFERRED_MAPPING"
+    UNMAPPED_TARGET_AREA = "UNMAPPED_TARGET_AREA"
+    MISSING_SOURCE_VALUE = "MISSING_SOURCE_VALUE"
+    INVALID_TARGET_CODE = "INVALID_TARGET_CODE"
+    TARGET_VALIDATION_FAILED = "TARGET_VALIDATION_FAILED"
+    MISSING_TARGET_UNIT = "MISSING_TARGET_UNIT"
+    MAPPING_VERSION_CONFLICT = "MAPPING_VERSION_CONFLICT"
+
+
 class RejectionReasonCode(StrEnum):
     MISSING_DIMENSION = "MISSING_DIMENSION"
     INVALID_CODE = "INVALID_CODE"
@@ -738,6 +760,186 @@ class TradeObservation(TimestampMixin, Base):
     )
     last_ingestion_batch_id: Mapped[int] = mapped_column(
         ForeignKey("ingestion_batch.id"), nullable=False
+    )
+
+
+class HarmonizationBatch(TimestampMixin, Base):
+    """Auditable execution envelope for one source-to-target run."""
+
+    __tablename__ = "harmonization_batch"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('RUNNING', 'SUCCESS', 'PARTIAL', 'FAILED')",
+            name="ck_harmonization_batch_status",
+        ),
+        Index("ix_harmonization_batch_source_dataset_id", "source_dataset_id"),
+        Index("ix_harmonization_batch_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_dataset_id: Mapped[int] = mapped_column(
+        ForeignKey("stat_dataset.id"), nullable=False
+    )
+    target_dataset_id: Mapped[int] = mapped_column(
+        ForeignKey("stat_dataset.id"), nullable=False
+    )
+    target_dataflow_agency: Mapped[str] = mapped_column(String(128), nullable=False)
+    target_dataflow_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    target_dataflow_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    target_dsd_agency: Mapped[str] = mapped_column(String(128), nullable=False)
+    target_dsd_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    target_dsd_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    mapping_definition_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    mapping_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[HarmonizationBatchStatus] = mapped_column(
+        SAEnum(
+            HarmonizationBatchStatus,
+            name="harmonization_batch_status",
+            native_enum=False,
+            create_constraint=False,
+            validate_strings=True,
+        ),
+        default=HarmonizationBatchStatus.RUNNING,
+        server_default=text("'RUNNING'"),
+        nullable=False,
+    )
+    source_observations_received: Mapped[int] = mapped_column(
+        Integer, default=0, server_default=text("0"), nullable=False
+    )
+    source_observations_valid: Mapped[int] = mapped_column(
+        Integer, default=0, server_default=text("0"), nullable=False
+    )
+    observations_transformed: Mapped[int] = mapped_column(
+        Integer, default=0, server_default=text("0"), nullable=False
+    )
+    observations_inserted: Mapped[int] = mapped_column(
+        Integer, default=0, server_default=text("0"), nullable=False
+    )
+    observations_updated: Mapped[int] = mapped_column(
+        Integer, default=0, server_default=text("0"), nullable=False
+    )
+    observations_skipped: Mapped[int] = mapped_column(
+        Integer, default=0, server_default=text("0"), nullable=False
+    )
+    observations_rejected: Mapped[int] = mapped_column(
+        Integer, default=0, server_default=text("0"), nullable=False
+    )
+    mapping_errors: Mapped[int] = mapped_column(
+        Integer, default=0, server_default=text("0"), nullable=False
+    )
+    target_validation_errors: Mapped[int] = mapped_column(
+        Integer, default=0, server_default=text("0"), nullable=False
+    )
+    source_batch_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ingestion_batch.id")
+    )
+    mapping_checksum: Mapped[str | None] = mapped_column(String(64))
+    target_structure_checksum: Mapped[str | None] = mapped_column(String(64))
+    error_message: Mapped[str | None] = mapped_column(Text)
+
+
+class AfrTradeObservation(TimestampMixin, Base):
+    """Current validated AFRSTAT:AFR_TRADE target warehouse row."""
+
+    __tablename__ = "afr_trade_observation"
+    __table_args__ = (
+        UniqueConstraint(
+            "target_dataset_id",
+            "target_key_hash",
+            name="uq_afr_trade_observation_dataset_target_key_hash",
+        ),
+        Index("ix_afr_trade_observation_ref_area", "ref_area"),
+        Index("ix_afr_trade_observation_counterpart_area", "counterpart_area"),
+        Index("ix_afr_trade_observation_trade_flow", "trade_flow"),
+        Index("ix_afr_trade_observation_product", "product"),
+        Index("ix_afr_trade_observation_time_period", "time_period"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    target_dataset_id: Mapped[int] = mapped_column(
+        ForeignKey("stat_dataset.id"), nullable=False
+    )
+    target_dsd_agency: Mapped[str] = mapped_column(String(128), nullable=False)
+    target_dsd_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    target_dsd_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    mapping_definition_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    mapping_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    freq: Mapped[str] = mapped_column(String(64), nullable=False)
+    ref_area: Mapped[str] = mapped_column(String(128), nullable=False)
+    counterpart_area: Mapped[str] = mapped_column(String(128), nullable=False)
+    trade_flow: Mapped[str] = mapped_column(String(128), nullable=False)
+    product_scheme: Mapped[str] = mapped_column(String(128), nullable=False)
+    product: Mapped[str] = mapped_column(String(255), nullable=False)
+    unit_measure: Mapped[str] = mapped_column(String(128), nullable=False)
+    time_period: Mapped[str] = mapped_column(String(64), nullable=False)
+    obs_value: Mapped[Decimal] = mapped_column(Numeric(), nullable=False)
+    obs_status: Mapped[str | None] = mapped_column(String(128))
+    conf_status: Mapped[str | None] = mapped_column(String(128))
+    unit_mult: Mapped[str] = mapped_column(String(32), nullable=False)
+    decimals: Mapped[int | None] = mapped_column(Integer)
+    source: Mapped[str] = mapped_column(String(128), nullable=False)
+    target_key: Mapped[str] = mapped_column(Text, nullable=False)
+    target_key_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    target_content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_trade_observation_id: Mapped[int] = mapped_column(
+        ForeignKey("trade_observation.id"), nullable=False
+    )
+    first_harmonization_batch_id: Mapped[int] = mapped_column(
+        ForeignKey("harmonization_batch.id"), nullable=False
+    )
+    last_harmonization_batch_id: Mapped[int] = mapped_column(
+        ForeignKey("harmonization_batch.id"), nullable=False
+    )
+    mapping_trace: Mapped[dict[str, object] | None] = mapped_column(JSON_DOCUMENT)
+
+
+class HarmonizationRejection(Base):
+    """Evidence explaining why one source row was not stored in the target."""
+
+    __tablename__ = "harmonization_rejection"
+    __table_args__ = (
+        CheckConstraint(
+            "severity IN ('WARNING', 'ERROR', 'FATAL')",
+            name="ck_harmonization_rejection_severity",
+        ),
+        Index(
+            "ix_harmonization_rejection_batch_id", "harmonization_batch_id"
+        ),
+        Index("ix_harmonization_rejection_reason", "reason_code"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    harmonization_batch_id: Mapped[int] = mapped_column(
+        ForeignKey("harmonization_batch.id", ondelete="CASCADE"), nullable=False
+    )
+    source_trade_observation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("trade_observation.id", ondelete="SET NULL")
+    )
+    source_key_hash: Mapped[str | None] = mapped_column(String(64))
+    target_key_hash: Mapped[str | None] = mapped_column(String(64))
+    reason_code: Mapped[HarmonizationRejectionReason] = mapped_column(
+        SAEnum(
+            HarmonizationRejectionReason,
+            name="harmonization_rejection_reason",
+            native_enum=False,
+            create_constraint=False,
+            validate_strings=True,
+            length=32,
+        ),
+        nullable=False,
+    )
+    severity: Mapped[str] = mapped_column(String(7), nullable=False)
+    concept_id: Mapped[str | None] = mapped_column(String(255))
+    source_value: Mapped[str | None] = mapped_column(Text)
+    target_value: Mapped[str | None] = mapped_column(Text)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    mapping_trace: Mapped[dict[str, object] | None] = mapped_column(JSON_DOCUMENT)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
 

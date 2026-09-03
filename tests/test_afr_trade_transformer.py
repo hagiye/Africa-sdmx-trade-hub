@@ -409,4 +409,6 @@ def test_harmonization_is_in_memory_only(
     after = session.scalar(select(func.count()).select_from(db.TradeObservation))
 
     assert before == after == 0
-    assert "AfrTradeObservation" not in vars(db)
+    assert session.scalar(
+        select(func.count()).select_from(db.AfrTradeObservation)
+    ) == 0

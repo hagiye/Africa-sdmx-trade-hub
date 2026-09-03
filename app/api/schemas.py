@@ -47,3 +47,43 @@ class CodePage(BaseModel):
     page_size: int
     total: int
     pages: int
+
+
+class AfrTradeObservationResponse(BaseModel):
+    id: int
+    FREQ: str
+    REF_AREA: str
+    COUNTERPART_AREA: str
+    TRADE_FLOW: str
+    PRODUCT_SCHEME: str
+    PRODUCT: str
+    UNIT_MEASURE: str
+    TIME_PERIOD: str
+    OBS_VALUE: str
+    OBS_STATUS: str | None = None
+    CONF_STATUS: str | None = None
+    UNIT_MULT: str
+    DECIMALS: int | None = None
+    SOURCE: str
+    target_key_hash: str
+    mapping_definition_id: str
+    mapping_version: str
+
+
+class AfrTradeObservationPage(BaseModel):
+    items: list[AfrTradeObservationResponse]
+    total: int
+    limit: int
+    offset: int
+
+
+class AfrTradeMetadataResponse(BaseModel):
+    agency: str
+    dataflow: str
+    version: str
+    DSD: dict[str, str]
+    dimensions: list[str]
+    attributes: list[str]
+    components: list[dict[str, object]]
+    codelists: list[dict[str, object]]
+    disclaimer: str

@@ -4,6 +4,8 @@ from fastapi import FastAPI
 
 from app.core.config import settings
 from app.api.metadata import router as metadata_router
+from app.api.afr_trade import router as afr_trade_router
+from app.api.ui_support import router as ui_support_router
 
 
 DISCLAIMER = (
@@ -13,6 +15,8 @@ DISCLAIMER = (
 
 app = FastAPI(title=settings.app_name)
 app.include_router(metadata_router)
+app.include_router(afr_trade_router)
+app.include_router(ui_support_router)
 
 
 @app.get("/")
