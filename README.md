@@ -107,6 +107,16 @@ python scripts/show_afr_trade_mappings.py
 python scripts/report_mapping_coverage.py
 ```
 
+## AFR_TRADE harmonization
+
+The in-memory two-stage validation and transformation workflow is documented
+in [`docs/afr-trade-harmonization.md`](docs/afr-trade-harmonization.md).
+
+```powershell
+python scripts/transform_trade_fixtures.py
+python scripts/show_harmonization_trace.py
+```
+
 Live integration tests are explicit and are excluded from the deterministic
 default suite:
 
