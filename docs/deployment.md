@@ -57,7 +57,10 @@ $env:DATABASE_SSL_MODE = "require"
 Remove-Item Env:DATABASE_URL
 ```
 
-The second bootstrap must report unchanged source and target observation counts.
+The first bootstrap deliberately repeats the controlled 2023 record inside its
+in-memory fixture payload. This records one non-rejecting duplicate-quality
+validation result while leaving the source and target warehouses at three
+unique observations. The second bootstrap must report every count unchanged.
 This is deliberately not an app startup command: no deployment replica runs
 migrations or invokes an external statistical provider.
 

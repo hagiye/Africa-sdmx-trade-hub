@@ -27,7 +27,7 @@ def test_explorer_summaries_mappings_findings_and_lineage(
     persistence_database: tuple[Session, db.StatDataset],
 ) -> None:
     session, source_dataset = persistence_database
-    rejected_batch = harmonize_source_warehouse(
+    initial_batch = harmonize_source_warehouse(
         session, source_dataset_id=source_dataset.id
     )
     target_dataset = ensure_target_dataset(session)
@@ -54,7 +54,7 @@ def test_explorer_summaries_mappings_findings_and_lineage(
         with TestClient(app) as client:
             summary = client.get("/api/v1/summary")
             assert summary.status_code == 200
-            assert summary.json()["harmonised_observations"] == 1
+            assert summary.json()["harmonised_observations"] == 3
             assert summary.json()["source_observations"] == 3
 
             validation = client.get("/api/v1/validation/summary")
@@ -68,7 +68,7 @@ def test_explorer_summaries_mappings_findings_and_lineage(
             mappings = client.get("/api/v1/harmonization/mappings")
             assert harmonization.status_code == mappings.status_code == 200
             assert harmonization.json()["latest_batch"]["id"] == successful_batch.id
-            assert len(mappings.json()) == 32
+            assert len(mappings.json()) == 33
             assert {item["mapping_type"] for item in mappings.json()} >= {
                 "DIRECT",
                 "DROP",
@@ -82,6 +82,7 @@ def test_explorer_summaries_mappings_findings_and_lineage(
             assert lineage.json()["source_observation"]["id"] == source_row.id
             assert lineage.json()["source_ingestion_batch"] is not None
             assert client.get("/api/v1/afr-trade/999999/lineage").status_code == 404
-            assert rejected_batch.observations_rejected == 3
+            assert initial_batch.observations_inserted == 3
+            assert initial_batch.observations_rejected == 0
     finally:
         app.dependency_overrides.clear()

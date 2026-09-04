@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 import app.main as main_module
 from app.core.config import Settings
 from app.main import app
+from scripts.bootstrap_demo_database import _fixture
 
 
 def test_hosted_postgres_urls_are_normalized_for_psycopg() -> None:
@@ -28,6 +29,14 @@ def test_production_rejects_wildcard_cors() -> None:
     )
     with pytest.raises(ValueError, match="cannot contain"):
         _ = settings.allowed_origins
+
+
+def test_demo_bootstrap_includes_controlled_validation_evidence() -> None:
+    payload = _fixture("2023", {})
+
+    assert payload["count"] == 2
+    assert payload["data"][0] == payload["data"][1]
+    assert payload["data"][0] is not payload["data"][1]
 
 
 def test_frontend_routes_and_security_boundaries(

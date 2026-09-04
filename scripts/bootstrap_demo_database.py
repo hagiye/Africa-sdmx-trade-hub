@@ -1,7 +1,9 @@
 """Idempotently prepare a small, deterministic recruiter-facing demo database.
 
 This script never calls UN Comtrade or an SDMX service. It uses the checked-in
-SDMX DSD snapshot, canonical metadata, and controlled 2022–2024 fixtures.
+SDMX DSD snapshot, canonical metadata, and controlled 2022–2024 fixtures. The
+2023 payload intentionally repeats its one record so the database includes a
+real, non-rejecting duplicate-quality validation result for the demo UI.
 Run ``alembic upgrade head`` before invoking it.
 """
 
@@ -270,7 +272,14 @@ def load_demo_source_metadata(session: Session) -> str:
 
 def _fixture(period: str, _parameters: dict[str, str]) -> dict[str, object]:
     path = FIXTURE_DIRECTORY / f"un_comtrade_tunisia_imports_world_{period}.json"
-    return copy.deepcopy(json.loads(path.read_text(encoding="utf-8")))
+    payload = copy.deepcopy(json.loads(path.read_text(encoding="utf-8")))
+    if period == "2023":
+        records = payload.get("data")
+        if not isinstance(records, list) or len(records) != 1:
+            raise RuntimeError("The controlled 2023 fixture must contain one record")
+        records.append(copy.deepcopy(records[0]))
+        payload["count"] = len(records)
+    return payload
 
 
 def _counts(session: Session) -> dict[str, int]:
@@ -286,7 +295,7 @@ def _counts(session: Session) -> dict[str, int]:
         "concept_mappings": db.SdmxConceptMapping,
         "code_mappings": db.SdmxCodeMapping,
         "source_observations": db.TradeObservation,
-        "validation_findings": db.ValidationFinding,
+        "validation_results": db.ValidationFinding,
         "target_observations": db.AfrTradeObservation,
         "lineage_rows": db.AfrTradeObservation,
     }
@@ -352,6 +361,8 @@ def bootstrap_demo_database(
         raise RuntimeError("Demo bootstrap did not create all controlled source observations")
     if result.counts["target_observations"] < len(PERIODS):
         raise RuntimeError("Demo bootstrap did not create all AFR_TRADE observations")
+    if result.counts["validation_results"] < 1:
+        raise RuntimeError("Demo bootstrap did not create validation evidence")
     return result
 
 

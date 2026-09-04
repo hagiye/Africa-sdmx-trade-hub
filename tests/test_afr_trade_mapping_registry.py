@@ -381,7 +381,11 @@ def test_target_version_isolation(mapping_session: Session) -> None:
 
 def test_confirmed_only_ignores_draft_and_deprecated(mapping_session: Session) -> None:
     unit = get_concept_mapping(
-        mapping_session, SOURCE, TARGET, "MEASURE", target_concept="UNIT_MEASURE"
+        mapping_session,
+        SOURCE,
+        TARGET,
+        "UNIT_MEASURE",
+        target_concept="UNIT_MEASURE",
     )
     frequency = _concept(mapping_session, "FREQ", "FREQ")
     mapping_session.add(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
@@ -100,6 +101,18 @@ def harmonization_database(
         for concept_id in SOURCE_ATTRIBUTES
     )
     dsd.measures.append(db.Measure(concept_id="OBS_VALUE"))
+    unit_multiplier = db.Codelist(
+        agency_id="SDMX",
+        codelist_id="CL_UNIT_MULT",
+        version="1.1",
+        name="CL_UNIT_MULT",
+        source_url="https://fixtures.invalid/CL_UNIT_MULT",
+        retrieved_at=datetime.now(timezone.utc),
+        checksum="e" * 64,
+    )
+    session.add(unit_multiplier)
+    session.flush()
+    session.add(db.Code(codelist_id=unit_multiplier.id, code="0"))
     session.commit()
     load_afr_trade_structure(session)
     load_sdmx_mappings(session)
