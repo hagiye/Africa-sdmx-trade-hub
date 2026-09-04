@@ -1,207 +1,176 @@
 # Pan-African SDMX Trade Data Hub
 
-An independent portfolio project demonstrating SDMX-based ingestion, harmonisation, validation and dissemination of African international trade statistics.
+An end-to-end official-statistics engineering portfolio: SDMX metadata, governed
+trade-data ingestion, validation, harmonisation, lineage, PostgreSQL, a FastAPI
+REST API, and a React Data Explorer in one deployable container.
 
-## Disclaimer
+**Live Demo:** `<PUBLIC_URL>` (pending deployment authorization)  
+**API Docs:** `<PUBLIC_URL>/docs` (pending deployment authorization)  
+**Source:** [GitHub](https://github.com/hagiye/Africa-sdmx-trade-hub)
 
-This is an independent portfolio demonstration project and is not an official African Union or STATAFRIC platform.
+> **Disclaimer:** `AFRSTAT:AFR_TRADE` and this application are independent
+> portfolio demonstration artefacts and are not official African Union or
+> STATAFRIC systems or standards.
 
-## Current architecture
+## What it demonstrates
 
-```text
-FastAPI
-   ↓
-SQLAlchemy
-   ↓
-PostgreSQL
+- Real SDMX structural metadata for `UNSD:IMTS`
+- Bounded UN Comtrade ingestion with deterministic observation identity
+- DSD- and codelist-aware source validation
+- Canonical bilingual African geography
+- Auditable PostgreSQL source warehouse and revision handling
+- Versioned source-to-target concept and code mappings
+- `AFRSTAT:AFR_TRADE(1.0)` harmonisation and target validation
+- Observation-level mapping trace and lineage
+- Read-only REST API, Swagger, and ReDoc
+- React and TypeScript Data Explorer, metadata, validation, and lineage views
+- Multi-stage, non-root Docker deployment serving UI and API from FastAPI
+
+## Architecture
+
+```mermaid
+flowchart TD
+    A[UN Comtrade] --> B[UNSD:IMTS]
+    B --> C[Source Validation]
+    C --> D[PostgreSQL Source Warehouse]
+    D --> E[Mapping Registry]
+    E --> F[AFR_TRADE]
+    F --> G[Target Validation]
+    G --> H[Harmonised Warehouse]
+    H --> I[FastAPI]
+    I --> J[React Data Explorer]
 ```
 
-The current implementation combines the SDMX metadata registry with canonical
-geography, bounded UN Comtrade ingestion, deterministic observation identity,
-revision handling, rule-based validation, and a governed AFR_TRADE target
-warehouse. Validation and harmonization rejection evidence is persisted.
+The React production build is copied into the Python image. FastAPI serves the
+SPA at `/`, preserves direct client routes such as `/metadata`, and never turns
+an unknown `/api/*` route into a frontend response.
 
-```text
-UN Comtrade
-    |
-UNSD source warehouse
-    |
-source validation
-    |
-mapping registry
-    |
-AFR_TRADE transformation
-    |
-target validation
-    |
-AFR_TRADE harmonised warehouse
-    |
-statistical REST API
-```
+## Public routes
 
-See `docs/validation-engine.md` for the distinction between SDMX structural
-rules and application scope such as AU-reporter eligibility.
+- `/` — Data Explorer landing page
+- `/explore` — filterable AFR_TRADE observations
+- `/metadata` — DSD and codelist metadata
+- `/validation` — stored validation evidence
+- `/harmonization` — mappings, batches, and lineage
+- `/architecture` and `/about` — design and attribution
+- `/docs` and `/redoc` — interactive API documentation
+- `/health` — concise liveness response
+- `/api/v1/afr-trade` — read-only statistics API
+- `/api/v1/afr-trade/metadata` — target metadata
 
-The independent canonical target design is documented in
-`docs/afr-trade-model.md`. `AFRSTAT:AFR_TRADE(1.0)` is a portfolio demonstration
-structure, not an official African Union or STATAFRIC artefact.
+## Local development
 
-## SDMX Structure Discovery
-
-The project discovers and imports four related SDMX structure types:
-
-- A **Dataflow** identifies a published dataset and references its structure.
-- A **DSD** defines the ordered dimensions, measures, and attributes of data.
-- A **Concept Scheme** defines the concepts used by those components.
-- A **Codelist** defines allowed codes and their multilingual labels.
-
-Live discovery on 2026-09-02 selected the public IMF SDMX Central registry at
-`https://sdmxcentral.imf.org/sdmx/v2/`. The trade dataflow is
-`UNSD:IMTS_A(1.0)` and it references `UNSD:IMTS(1.2)`, International
-Merchandise Trade Statistics. The agency identifier is preserved as `UNSD`;
-this project does not claim that the structure is owned by IMF.
-
-```text
-SDMX Provider
-    |
-Dataflow
-    |
-DSD
-  /   \
-Concepts  Codelists
-    \     /
-PostgreSQL Metadata Registry
-    |
-FastAPI Metadata API
-```
-
-Raw response SHA-256 values are logged for traceability. Change detection uses
-a canonical SHA-256 of the `<Structures>` content so volatile SDMX message IDs
-and preparation timestamps do not trigger false updates.
-
-## Development setup
-
-Run these commands from PowerShell on Windows:
+Prerequisites are Python 3.12+, Node.js 22+, Docker, and Docker Compose.
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
+npm --prefix frontend ci
 Copy-Item .env.example .env
-# Replace the placeholder passwords in .env before starting services.
+# Set local POSTGRES_* values for Compose and a local DATABASE_URL in .env.
 docker compose up -d
-python scripts/test_database.py
 alembic upgrade head
-python -m uvicorn app.main:app --reload
-```
-
-Run the automated tests separately:
-
-```powershell
 python -m pytest -v
+npm --prefix frontend test
+npm --prefix frontend run build
 ```
 
-## Structure commands
+Run the two development processes:
 
 ```powershell
-python scripts/discover_provider.py
-python scripts/discover_dataflows.py
-python scripts/inspect_trade_dsd.py
-python scripts/import_structures.py
-python scripts/show_metadata_registry.py
-pytest -v
+python -m uvicorn app.main:app --reload
+npm --prefix frontend run dev
 ```
 
-## AFR_TRADE mapping registry
+The Vite development proxy sends `/api`, `/health`, `/docs`, and `/redoc` to
+the backend. `VITE_API_BASE_URL` is optional for development and is deliberately
+empty in the production image so browser requests remain same-origin.
 
-Step 26B's version-aware, metadata-only mapping registry is documented in
-[`docs/afr-trade-mapping.md`](docs/afr-trade-mapping.md). Load and inspect it
-after both source and target structures are present:
+## Production container
+
+Build and run the single-worker production image:
 
 ```powershell
-python scripts/load_afr_trade_mappings.py
-python scripts/show_afr_trade_mappings.py
-python scripts/report_mapping_coverage.py
+docker build -t africa-sdmx-trade-hub .
+docker run --rm -p 8000:8000 `
+  -e PORT=8000 `
+  -e ENVIRONMENT=production `
+  -e DATABASE_URL="postgresql+psycopg://USER:PASSWORD@HOST/DATABASE?sslmode=require" `
+  africa-sdmx-trade-hub
 ```
 
-## AFR_TRADE harmonization
+The runtime uses a non-root user, one Uvicorn worker, a small SQLAlchemy pool,
+`pool_pre_ping`, and the platform-supplied `PORT`. Application startup performs
+no migrations, database bootstrap, or live provider ingestion.
 
-The in-memory two-stage validation and transformation workflow is documented
-in [`docs/afr-trade-harmonization.md`](docs/afr-trade-harmonization.md).
+## Migrations and controlled demo data
+
+Migrations are an explicit, single-operator action. Apply them before starting
+the first deployment; do not run concurrent migration commands from replicas.
 
 ```powershell
-python scripts/transform_trade_fixtures.py
-python scripts/show_harmonization_trace.py
+$env:DATABASE_URL = "postgresql+psycopg://..."
+alembic upgrade head
+alembic check
+python scripts/bootstrap_demo_database.py
+python scripts/bootstrap_demo_database.py  # proves idempotency
 ```
 
-## AFR_TRADE persistence and API
+The bootstrap refuses a database that is not at the Alembic head. It uses only
+checked-in structure snapshots, canonical reference data, mappings, and three
+controlled UN Comtrade response fixtures (2022–2024). It never contacts UN
+Comtrade or another SDMX provider.
 
-The target-valid-only persistence lifecycle, mapping-version policy, lineage,
-quality reporting, and read-only statistical REST API are documented in
-[`docs/afr-trade-persistence.md`](docs/afr-trade-persistence.md).
+## Deployment
+
+See [Production deployment](docs/deployment.md) for the free-tier guardrails,
+Neon setup, the deliberate one-time migration flow, Koyeb configuration, cold
+starts, security headers, and verification checklist.
+
+After deployment, run:
 
 ```powershell
-python scripts/harmonize_trade_data.py
-python scripts/show_afr_trade_warehouse.py
-python scripts/report_harmonization_quality.py
-python scripts/show_observation_lineage.py
+python scripts/smoke_test_deployment.py https://YOUR-REAL-DOMAIN
 ```
 
-Live integration tests are explicit and are excluded from the deterministic
-default suite:
+The smoke test checks the landing page, health, Swagger, AFR_TRADE data and
+metadata, plus a filtered statistics query.
 
-```powershell
-pytest -m integration -v
-```
+## Configuration
 
-## API
+All production configuration comes from environment variables. Copy
+`.env.example` only for local setup; never commit `.env`.
 
-- `/` — service metadata
-- `/health` — service health status
-- `/docs` — Swagger UI
-- `/redoc` — ReDoc documentation
-- `/api/v1/dataflows`
-- `/api/v1/dataflows/{agency}/{dataflow_id}/{version}`
-- `/api/v1/dsd/{agency}/{dsd_id}/{version}`
-- `/api/v1/dsd/{agency}/{dsd_id}/{version}/dimensions`
-- `/api/v1/codelists`
-- `/api/v1/codelists/{agency}/{codelist_id}/{version}`
-- `/api/v1/codelists/{agency}/{codelist_id}/{version}/codes`
-- `/api/v1/afr-trade`
-- `/api/v1/afr-trade/{observation_id}`
-- `/api/v1/afr-trade/metadata`
+| Variable | Purpose |
+| --- | --- |
+| `ENVIRONMENT` | Set to `production` on the public service |
+| `DATABASE_URL` | Hosted PostgreSQL URL; `postgres://` and `postgresql://` are normalized to psycopg v3 |
+| `DATABASE_SSL_MODE` | Optional psycopg SSL mode; use `require` when the provider requires TLS |
+| `SECRET_KEY` | Reserved application secret; store as a platform secret |
+| `PORT` | Listener port supplied by the hosting platform |
+| `CORS_ALLOWED_ORIGINS` | Optional comma-separated trusted origins; empty for same-origin production |
+| `DATABASE_POOL_SIZE` | Conservative persistent connection count (default `2`) |
+| `DATABASE_MAX_OVERFLOW` | Short-lived connections beyond the pool (default `1`) |
 
-## Data Explorer
+Production rejects wildcard CORS. Responses include `X-Content-Type-Options`,
+`Referrer-Policy`, frame protection, and a Swagger-compatible content security
+policy. Unhandled errors return a generic response; secrets and database URLs
+are not logged.
 
-The recruiter-facing React and TypeScript application in `frontend/` presents
-the project as a restrained statistical dissemination portal. It includes:
+## Documentation
 
-- Home — live statistical coverage and pipeline summary
-- Data Explorer — explicit filters, labelled table, time-series chart, filtered
-  CSV export, and exact API-query viewer
-- Metadata — target components and bilingual codelists
-- Validation — stored validation summaries, rules, and findings
-- Harmonisation — batch counts, mapping matrix, rejection evidence, and lineage
-- Architecture, API, and About — system context, access points, attribution, and
-  the non-official disclaimer
+- [AFR_TRADE model](docs/afr-trade-model.md)
+- [Mapping registry](docs/afr-trade-mapping.md)
+- [Harmonisation pipeline](docs/afr-trade-harmonization.md)
+- [Persistence, validation, and lineage](docs/afr-trade-persistence.md)
+- [Validation engine](docs/validation-engine.md)
+- [Statistical warehouse](docs/statistical-warehouse.md)
 
-Run the backend and frontend separately during development:
+## License and data terms
 
-```powershell
-# Terminal 1 — backend
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
-
-# Terminal 2 — frontend
-cd frontend
-npm install
-npm run dev
-```
-
-`VITE_API_BASE_URL` may point to an explicit backend origin. When unset, the
-Vite development proxy and future same-origin deployments use relative API
-URLs. Production static hosting is intentionally not configured in Step 27.
-
-Verified application screenshots belong in `docs/screenshots/`; the repository
-does not include fabricated placeholders.
-
-Independent portfolio demonstration project. Not an official African Union or STATAFRIC platform.
+Application code is available under the [MIT License](LICENSE). That license
+does not relicense third-party statistical data, metadata, or provider material.
+UN Comtrade-derived fixtures and metadata retain their source attribution and
+remain subject to the applicable provider terms. `AFRSTAT:AFR_TRADE` is an
+independent demonstration artefact, not an official standard.

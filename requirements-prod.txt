@@ -1,0 +1,12 @@
+alembic==1.19.1
+fastapi==0.141.1
+lxml==6.1.2
+Mako==1.4.1
+psycopg==3.3.5
+psycopg-binary==3.3.5
+pydantic==2.13.5
+pydantic-settings==2.15.0
+python-dotenv==1.2.3
+requests==2.34.2
+SQLAlchemy==2.0.52
+uvicorn==0.52.4

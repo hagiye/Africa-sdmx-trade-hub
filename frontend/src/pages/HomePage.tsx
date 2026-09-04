@@ -30,6 +30,13 @@ export default function HomePage() {
         </aside>
       </section>
 
+      <section className="page-width" aria-label="Portfolio disclaimer">
+        <aside className="disclaimer-card">
+          <strong>Independent portfolio demonstration</strong>
+          <p>Independent portfolio demonstration — not an official African Union or STATAFRIC platform.</p>
+        </aside>
+      </section>
+
       <section className="section page-width" aria-labelledby="coverage-heading">
         <div className="section-heading"><div><p className="eyebrow">Current warehouse</p><h2 id="coverage-heading">Statistical coverage</h2></div><p>Live values from the PostgreSQL-backed API.</p></div>
         {loading && <LoadingState label="Loading current coverage…" />}

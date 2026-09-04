@@ -125,6 +125,7 @@ def _prepare_structure_registry(session: Session) -> None:
     _add_source_codelist(
         session, "UNSD", "CL_COMMODITY", "1.0", ("SITC4_TOTAL",)
     )
+    _add_source_codelist(session, "SDMX", "CL_UNIT_MULT", "1.1", ("0",))
     session.commit()
     load_afr_trade_structure(session)
 
