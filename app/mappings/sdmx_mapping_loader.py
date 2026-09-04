@@ -109,6 +109,18 @@ def load_mapping_definition(
         raise MappingDefinitionError(
             "transformations, concepts, and codes must be arrays"
         )
+    source_metadata_concepts = definition.get("source_metadata_concepts", [])
+    if (
+        not isinstance(source_metadata_concepts, list)
+        or any(
+            not isinstance(item, str) or not item.strip()
+            for item in source_metadata_concepts
+        )
+        or len(source_metadata_concepts) != len(set(source_metadata_concepts))
+    ):
+        raise MappingDefinitionError(
+            "source_metadata_concepts must be a unique array of non-empty strings"
+        )
 
     transformation_ids: set[str] = set()
     for item in transformations:
@@ -260,7 +272,9 @@ def load_sdmx_mappings(
     definition = mapping.definition
     source_dsd = _registry_dsd(session, mapping.source)
     target_dsd = _registry_dsd(session, mapping.target)
-    source_concepts = _component_ids(source_dsd)
+    source_concepts = _component_ids(source_dsd) | set(
+        definition.get("source_metadata_concepts", [])
+    )
     target_concepts = _component_ids(target_dsd)
     for item in definition["concepts"]:
         if item["source"] not in source_concepts:

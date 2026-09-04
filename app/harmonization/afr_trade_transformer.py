@@ -63,6 +63,7 @@ def _source_value(
         ),
         "TIME_PERIOD": observation.time_period,
         "OBS_VALUE": observation.primary_value,
+        "SOURCE_SYSTEM": observation.source_system,
     }
     if concept_id in explicit:
         return explicit[concept_id]
@@ -343,6 +344,108 @@ def _map_area(
     )
 
 
+def _map_primary_value_unit(
+    session: Session,
+    observation: NormalizedTradeObservation,
+    traces: list[MappingTrace],
+    errors: list[HarmonizationIssue],
+) -> str | None:
+    """Resolve USD only for the evidenced Comtrade CIF import-value path."""
+
+    mapping = _confirmed_concept(
+        session, observation, "MEASURE", "UNIT_MEASURE", errors
+    )
+    if mapping is None:
+        return None
+    is_supported_cif_value = (
+        observation.source_system == "UN_COMTRADE"
+        and observation.trade_flow_code == "M"
+        and observation.primary_value is not None
+        and observation.cif_value is not None
+        and observation.primary_value == observation.cif_value
+    )
+    if not is_supported_cif_value:
+        errors.append(
+            HarmonizationIssue(
+                code=HarmonizationIssueCode.MISSING_CODE_MAPPING,
+                source_concept="MEASURE",
+                target_concept="UNIT_MEASURE",
+                source_value=None,
+                message=(
+                    "UNIT_MEASURE can be derived only when a UN Comtrade import "
+                    "primaryValue is evidenced by the same-record cifvalue."
+                ),
+            )
+        )
+        traces.append(
+            _trace(
+                mapping,
+                None,
+                None,
+                outcome="UNRESOLVED",
+                message="Primary trade-value semantics are outside the confirmed MVP path.",
+            )
+        )
+        return None
+    traces.append(
+        _trace(
+            mapping,
+            "V_CIF",
+            "USD",
+            outcome="RESOLVED",
+            message=(
+                "primaryValue equals cifvalue; official UN Comtrade documentation "
+                "defines published trade values as current US-dollar values."
+            ),
+        )
+    )
+    return "USD"
+
+
+def _map_source(
+    session: Session,
+    observation: NormalizedTradeObservation,
+    traces: list[MappingTrace],
+    errors: list[HarmonizationIssue],
+) -> str | None:
+    mapping = _confirmed_concept(
+        session, observation, "SOURCE_SYSTEM", "SOURCE", errors
+    )
+    if mapping is None:
+        return None
+    if observation.source_system != "UN_COMTRADE":
+        errors.append(
+            HarmonizationIssue(
+                code=HarmonizationIssueCode.MISSING_CODE_MAPPING,
+                source_concept="SOURCE_SYSTEM",
+                target_concept="SOURCE",
+                source_value=observation.source_system,
+                message=(
+                    "No confirmed target SOURCE derivation exists for provider "
+                    f"{observation.source_system!r}."
+                ),
+            )
+        )
+        traces.append(
+            _trace(
+                mapping,
+                observation.source_system,
+                None,
+                outcome="UNRESOLVED",
+            )
+        )
+        return None
+    traces.append(
+        _trace(
+            mapping,
+            observation.source_system,
+            "UN_COMTRADE",
+            outcome="RESOLVED",
+        )
+    )
+    return "UN_COMTRADE"
+
+
 def _classification_traces(
     session: Session,
     observation: NormalizedTradeObservation,
@@ -496,23 +599,17 @@ def transform_to_afr_trade(
         errors,
     )
 
-    # Required target components remain absent when the registry has no
-    # confirmed definition. This is a governed failure, never a default.
-    for source_concept, target_concept in (
-        ("MEASURE", "UNIT_MEASURE"),
-        ("UNIT_MULT", "UNIT_MULT"),
-    ):
-        _confirmed_concept(
-            session, observation, source_concept, target_concept, errors
-        )
-    errors.append(
-        _issue_for_decision(
-            "SOURCE_SYSTEM",
-            "SOURCE",
-            observation.source_system,
-            _all_decisions(session, "SOURCE_SYSTEM", "SOURCE"),
-        )
+    unit_measure = _map_primary_value_unit(session, observation, traces, errors)
+    unit_mult = _map_code(
+        session,
+        observation,
+        "UNIT_MULT",
+        "UNIT_MULT",
+        "0" if unit_measure is not None else None,
+        traces,
+        errors,
     )
+    source = _map_source(session, observation, traces, errors)
 
     target = AfrTradeObservation(
         freq=freq,
@@ -521,11 +618,11 @@ def transform_to_afr_trade(
         trade_flow=trade_flow,
         product_scheme=product_scheme,
         product=product,
-        unit_measure=None,
+        unit_measure=unit_measure,
         time_period=time_period,
         obs_value=obs_value,
-        unit_mult=None,
-        source=None,
+        unit_mult=unit_mult,
+        source=source,
     )
     dropped, deferred = _classification_traces(
         session, observation, traces, warnings

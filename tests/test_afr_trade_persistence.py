@@ -194,7 +194,7 @@ def test_database_unique_constraint_rejects_duplicate_target_identity(
     session.rollback()
 
 
-def test_current_real_observations_are_rejected_not_persisted(
+def test_current_real_observations_are_persisted_after_validation(
     persistence_database: tuple[Session, db.StatDataset],
 ) -> None:
     session, source_dataset = persistence_database
@@ -202,7 +202,7 @@ def test_current_real_observations_are_rejected_not_persisted(
         session, source_dataset_id=source_dataset.id
     )
 
-    assert batch.status is db.HarmonizationBatchStatus.PARTIAL
+    assert batch.status is db.HarmonizationBatchStatus.SUCCESS
     assert (
         batch.source_observations_received,
         batch.source_observations_valid,
@@ -211,6 +211,6 @@ def test_current_real_observations_are_rejected_not_persisted(
         batch.observations_updated,
         batch.observations_skipped,
         batch.observations_rejected,
-    ) == (3, 3, 3, 0, 0, 0, 3)
-    assert session.scalar(select(func.count()).select_from(db.AfrTradeObservation)) == 0
-    assert session.scalar(select(func.count()).select_from(db.HarmonizationRejection)) >= 3
+    ) == (3, 3, 3, 3, 0, 0, 0)
+    assert session.scalar(select(func.count()).select_from(db.AfrTradeObservation)) == 3
+    assert session.scalar(select(func.count()).select_from(db.HarmonizationRejection)) == 0

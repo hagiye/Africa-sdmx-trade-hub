@@ -134,7 +134,7 @@ def _transform(
 
 
 @pytest.mark.parametrize("period", ("2022", "2023", "2024"))
-def test_real_observation_maps_confirmed_core_and_exposes_target_blockers(
+def test_real_observation_maps_confirmed_target(
     harmonization_database: tuple[Session, db.StatDataset],
     period: str,
 ) -> None:
@@ -143,7 +143,7 @@ def test_real_observation_maps_confirmed_core_and_exposes_target_blockers(
     target = result.target_observation
 
     assert result.source_validation.is_valid
-    assert result.status is HarmonizationStatus.PARTIAL
+    assert result.status is HarmonizationStatus.SUCCESS
     assert target is not None
     assert (
         target.freq,
@@ -165,14 +165,12 @@ def test_real_observation_maps_confirmed_core_and_exposes_target_blockers(
         EXPECTED_VALUES[period],
     )
     assert (target.unit_measure, target.unit_mult, target.source) == (
-        None, None, None
+        "USD", "0", "UN_COMTRADE"
     )
     assert result.target_validation is not None
-    assert result.target_validation.status is TargetValidationStatus.INVALID
-    assert {row.concept_id for row in result.target_validation.findings} == {
-        "UNIT_MEASURE", "UNIT_MULT", "SOURCE"
-    }
-    assert result.target_identity is None
+    assert result.target_validation.status is TargetValidationStatus.VALID
+    assert result.target_validation.findings == []
+    assert result.target_identity is not None
 
 
 def test_mapping_trace_records_registry_decisions(
@@ -194,12 +192,16 @@ def test_mapping_trace_records_registry_decisions(
     )
     assert resolved[("TRADE_FLOW", "TRADE_FLOW")].target_value == "IMPORT"
     assert resolved[("PRODUCT", "COMMODITY_1")].target_value == "TOTAL"
+    assert resolved[("UNIT_MEASURE", "MEASURE")].source_value == "V_CIF"
+    assert resolved[("UNIT_MEASURE", "MEASURE")].target_value == "USD"
+    assert resolved[("UNIT_MULT", "UNIT_MULT")].target_value == "0"
+    assert resolved[("SOURCE", "SOURCE_SYSTEM")].target_value == "UN_COMTRADE"
     assert all(
         row.mapping_status is db.SdmxMappingStatus.CONFIRMED
         for row in resolved.values()
     )
     assert "COMMODITY_2" in result.dropped_concepts
-    assert "MEASURE" in result.deferred_concepts
+    assert "UNIT_MEASURE" in result.deferred_concepts
 
 
 def test_canonical_json_is_deterministic_and_not_labeled_sdmx_json() -> None:
@@ -289,6 +291,16 @@ def test_deferred_unit_mapping_is_explicit(
     harmonization_database: tuple[Session, db.StatDataset],
 ) -> None:
     session, dataset = harmonization_database
+    mapping = session.scalar(
+        select(db.SdmxConceptMapping).where(
+            db.SdmxConceptMapping.source_concept_id == "MEASURE",
+            db.SdmxConceptMapping.target_concept_id == "UNIT_MEASURE",
+        )
+    )
+    assert mapping is not None
+    mapping.mapping_type = db.SdmxMappingType.DEFER
+    mapping.status = db.SdmxMappingStatus.DRAFT
+    session.commit()
     result = _transform(session, dataset, "2023")
 
     assert any(
@@ -299,6 +311,60 @@ def test_deferred_unit_mapping_is_explicit(
     assert any(
         row.target_concept == "UNIT_MEASURE" and row.outcome == "DEFERRED"
         for row in result.mapping_results
+    )
+
+
+def test_ambiguous_primary_value_still_fails_with_missing_target_unit(
+    harmonization_database: tuple[Session, db.StatDataset],
+) -> None:
+    session, dataset = harmonization_database
+    observation = _normalized(session, "2023").model_copy(
+        update={"cif_value": Decimal("1")}
+    )
+    result = transform_to_afr_trade(
+        observation,
+        session,
+        source_validation=_source_validation(session, dataset, observation),
+    )
+
+    assert result.status is HarmonizationStatus.PARTIAL
+    assert result.target_observation is not None
+    assert result.target_observation.unit_measure is None
+    assert any(
+        issue.code is HarmonizationIssueCode.MISSING_CODE_MAPPING
+        and issue.target_concept == "UNIT_MEASURE"
+        for issue in result.errors
+    )
+    assert result.target_validation is not None
+    assert any(
+        finding.concept_id == "UNIT_MEASURE"
+        for finding in result.target_validation.findings
+    )
+
+
+def test_missing_source_mapping_still_fails_safely(
+    harmonization_database: tuple[Session, db.StatDataset],
+) -> None:
+    session, dataset = harmonization_database
+    mapping = session.scalar(
+        select(db.SdmxConceptMapping).where(
+            db.SdmxConceptMapping.source_concept_id == "SOURCE_SYSTEM",
+            db.SdmxConceptMapping.target_concept_id == "SOURCE",
+        )
+    )
+    assert mapping is not None
+    session.delete(mapping)
+    session.commit()
+
+    result = _transform(session, dataset, "2023")
+
+    assert result.status is HarmonizationStatus.PARTIAL
+    assert result.target_observation is not None
+    assert result.target_observation.source is None
+    assert any(
+        issue.code is HarmonizationIssueCode.MISSING_CONCEPT_MAPPING
+        and issue.target_concept == "SOURCE"
+        for issue in result.errors
     )
 
 

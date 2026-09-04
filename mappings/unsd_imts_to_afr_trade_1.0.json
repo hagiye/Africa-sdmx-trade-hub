@@ -7,6 +7,7 @@
     "status_policy": "Only CONFIRMED mappings are eligible for automatic use."
   },
   "source": {"agency": "UNSD", "structure": "IMTS", "version": "1.2"},
+  "source_metadata_concepts": ["SOURCE_SYSTEM"],
   "target": {"agency": "AFRSTAT", "structure": "AFR_TRADE", "version": "1.0"},
   "disclaimer": "AFRSTAT:AFR_TRADE is an independent portfolio demonstration model. This mapping is not an official African Union or STATAFRIC harmonisation specification.",
   "transformations": [
@@ -15,7 +16,8 @@
     {"id": "MAP_TRADE_FLOW", "name": "Trade-flow code lookup", "description": "Resolve source trade-flow codes using explicit code mappings.", "implementation_key": "MAP_TRADE_FLOW", "version": "1.0"},
     {"id": "MAP_PRODUCT_SCHEME", "name": "Product classification lookup", "description": "Derive the target product scheme from classification-aware source commodity metadata.", "implementation_key": "MAP_PRODUCT_SCHEME", "version": "1.0"},
     {"id": "MAP_PRODUCT", "name": "Classification-aware product lookup", "description": "Resolve a source commodity only within its declared classification context.", "implementation_key": "MAP_PRODUCT", "version": "1.0"},
-    {"id": "MAP_UNIT", "name": "Measure and unit lookup", "description": "Reserved for a later approved mapping of source measure semantics to target unit metadata.", "implementation_key": "MAP_UNIT", "version": "1.0"}
+    {"id": "MAP_UNIT", "name": "Measure and unit derivation", "description": "Derive USD and an unscaled multiplier only when the UN Comtrade primary value is evidenced as the current-dollar CIF trade value for the supported import path.", "implementation_key": "MAP_UNIT", "version": "1.0"},
+    {"id": "MAP_SOURCE", "name": "Controlled provider provenance", "description": "Derive the controlled target source code from exact provider metadata; no URL or credential is copied.", "implementation_key": "MAP_SOURCE", "version": "1.0"}
   ],
   "concepts": [
     {"source": "FREQ", "target": "FREQ", "type": "DIRECT", "status": "CONFIRMED", "transformation": "IDENTITY", "notes": "Frequency semantics align; code use remains explicit."},
@@ -36,7 +38,7 @@
     {"source": "CUSTOMS_PROC", "target": null, "type": "DEFER", "status": "DRAFT", "notes": "Authoritative target semantics are not established."},
     {"source": "ACTIVITY", "target": null, "type": "DEFER", "status": "DRAFT", "notes": "Outside the aggregate trade MVP."},
     {"source": "TRANSFORMATION", "target": null, "type": "DEFER", "status": "DRAFT", "notes": "Outside the aggregate trade MVP."},
-    {"source": "MEASURE", "target": "UNIT_MEASURE", "type": "DEFER", "status": "DRAFT", "transformation": "MAP_UNIT", "notes": "primaryValue is not a unit; exact monetary semantics require approval."},
+    {"source": "MEASURE", "target": "UNIT_MEASURE", "type": "DERIVE", "status": "CONFIRMED", "transformation": "MAP_UNIT", "notes": "For the supported UN Comtrade import path only: primaryValue equals cifvalue; official provider documentation identifies primaryValue as the selected trade value and published trade values as current USD. Quantity-unit fields are not used."},
     {"source": "TIME_PERIOD", "target": "TIME_PERIOD", "type": "DIRECT", "status": "CONFIRMED", "transformation": "IDENTITY", "notes": "Time format remains conditional on FREQ."},
 
     {"source": "OBS_VALUE", "target": "OBS_VALUE", "type": "DIRECT", "status": "CONFIRMED", "transformation": "IDENTITY", "notes": "Numeric primary measure only; no observation transformation is implemented here."},
@@ -49,8 +51,9 @@
     {"source": "COUNTERPART_AREA_2_TYPE", "target": null, "type": "DROP", "status": "CONFIRMED", "notes": "Secondary counterpart is omitted."},
     {"source": "OBS_STATUS", "target": "OBS_STATUS", "type": "DEFER", "status": "DRAFT", "notes": "Source and provider status equivalence is not established."},
     {"source": "TRADE_SYSTEM", "target": null, "type": "DEFER", "status": "DRAFT", "notes": "Potentially useful but not harmonised in AFR_TRADE 1.0."},
-    {"source": "UNIT_MEASURE", "target": "UNIT_MEASURE", "type": "DEFER", "status": "DRAFT", "transformation": "MAP_UNIT", "notes": "The simplified source sample does not establish the unit of primaryValue."},
-    {"source": "UNIT_MULT", "target": "UNIT_MULT", "type": "DEFER", "status": "DRAFT", "notes": "Target supports unscaled values, but source assignment is not approved."}
+    {"source": "UNIT_MEASURE", "target": "UNIT_MEASURE", "type": "DEFER", "status": "DRAFT", "transformation": "MAP_UNIT", "notes": "Direct SDMX-data-path unit mapping remains outside the simplified Comtrade JSON MVP; the supported API path derives USD through the confirmed MEASURE transformation."},
+    {"source": "UNIT_MULT", "target": "UNIT_MULT", "type": "DERIVE", "status": "CONFIRMED", "transformation": "MAP_UNIT", "notes": "UN Comtrade API trade values are published as unscaled current US-dollar values; target multiplier 0 is resolved through an explicit code mapping."},
+    {"source": "SOURCE_SYSTEM", "target": "SOURCE", "type": "DERIVE", "status": "CONFIRMED", "transformation": "MAP_SOURCE", "notes": "Exact provider metadata UN_COMTRADE derives the controlled target provenance code UN_COMTRADE."}
   ],
   "codes": [
     {"concept": {"source": "FREQ", "target": "FREQ"}, "source_codelist": {"agency": "SDMX", "id": "CL_FREQ", "version": "2.0"}, "source_code": "A", "target_codelist": {"agency": "AFRSTAT", "id": "CL_FREQ", "version": "1.0"}, "target_code": "A", "status": "CONFIRMED", "method": "EXPLICIT_IDENTITY", "notes": "Annual frequency only for the current MVP."},
@@ -59,6 +62,7 @@
     {"concept": {"source": "TRADE_FLOW", "target": "TRADE_FLOW"}, "source_codelist": {"agency": "UNSD", "id": "CL_TRADE_FLOW", "version": "1.0"}, "source_code": "M", "target_codelist": {"agency": "AFRSTAT", "id": "CL_TRADE_FLOW", "version": "1.0"}, "target_code": "IMPORT", "status": "CONFIRMED", "method": "EXPLICIT_CODE_MAP"},
     {"concept": {"source": "TRADE_FLOW", "target": "TRADE_FLOW"}, "source_codelist": {"agency": "UNSD", "id": "CL_TRADE_FLOW", "version": "1.0"}, "source_code": "X", "target_codelist": {"agency": "AFRSTAT", "id": "CL_TRADE_FLOW", "version": "1.0"}, "target_code": "EXPORT", "status": "CONFIRMED", "method": "EXPLICIT_CODE_MAP"},
     {"concept": {"source": "COMMODITY_1", "target": "PRODUCT_SCHEME"}, "source_codelist": {"agency": "UNSD", "id": "CL_COMMODITY", "version": "1.0"}, "source_code": "SITC4_TOTAL", "target_codelist": {"agency": "AFRSTAT", "id": "CL_PRODUCT_SCHEME", "version": "1.0"}, "target_code": "SITC4", "status": "CONFIRMED", "method": "CLASSIFICATION_AWARE", "notes": "Source S4 plus TOTAL is represented by the classification-aware SDMX code SITC4_TOTAL."},
-    {"concept": {"source": "COMMODITY_1", "target": "PRODUCT"}, "source_codelist": {"agency": "UNSD", "id": "CL_COMMODITY", "version": "1.0"}, "source_code": "SITC4_TOTAL", "target_codelist": {"agency": "AFRSTAT", "id": "CL_PRODUCT", "version": "1.0"}, "target_code": "TOTAL", "status": "CONFIRMED", "method": "CLASSIFICATION_AWARE", "notes": "Detailed products remain unresolved unless explicitly added for the same classification context."}
+    {"concept": {"source": "COMMODITY_1", "target": "PRODUCT"}, "source_codelist": {"agency": "UNSD", "id": "CL_COMMODITY", "version": "1.0"}, "source_code": "SITC4_TOTAL", "target_codelist": {"agency": "AFRSTAT", "id": "CL_PRODUCT", "version": "1.0"}, "target_code": "TOTAL", "status": "CONFIRMED", "method": "CLASSIFICATION_AWARE", "notes": "Detailed products remain unresolved unless explicitly added for the same classification context."},
+    {"concept": {"source": "UNIT_MULT", "target": "UNIT_MULT"}, "source_codelist": {"agency": "SDMX", "id": "CL_UNIT_MULT", "version": "1.1"}, "source_code": "0", "target_codelist": {"agency": "AFRSTAT", "id": "CL_UNIT_MULT", "version": "1.0"}, "target_code": "0", "status": "CONFIRMED", "method": "PROVIDER_VALUE_UNSCALED", "notes": "The supported Comtrade API values are expressed in current USD units, not thousands or millions."}
   ]
 }

@@ -186,12 +186,12 @@ def test_loader_is_idempotent_and_stores_checksum(db_session: Session) -> None:
     second_ids = set(db_session.scalars(select(db.SdmxConceptMapping.id)))
 
     assert (first.action, first.inserted, first.updated, first.unchanged) == (
-        "INSERT", 45, 0, 0
+        "INSERT", 48, 0, 0
     )
     assert (second.action, second.inserted, second.updated, second.unchanged) == (
-        "UNCHANGED", 0, 0, 45
+        "UNCHANGED", 0, 0, 48
     )
-    assert (first.transformations, first.concepts, first.codes) == (6, 32, 7)
+    assert (first.transformations, first.concepts, first.codes) == (7, 33, 8)
     assert first.checksum == second.checksum
     assert first_ids == second_ids
     assert set(db_session.scalars(select(db.SdmxConceptMapping.definition_checksum))) == {
@@ -223,6 +223,7 @@ def test_all_source_components_are_classified_and_targets_exist(
         *(item.concept_id for item in source_dsd.attributes),
         *(item.concept_id for item in source_dsd.measures),
     }
+    source_ids.update(load_mapping_definition().definition["source_metadata_concepts"])
     target_ids = {
         *(item.concept_id for item in target_dsd.dimensions),
         *(item.concept_id for item in target_dsd.attributes),
@@ -261,7 +262,9 @@ def test_all_source_components_are_classified_and_targets_exist(
             "COMMODITY_1", "PRODUCT", MappingType.DERIVE,
             MappingStatus.CONFIRMED,
         ),
-        ("MEASURE", "UNIT_MEASURE", MappingType.DEFER, MappingStatus.DRAFT),
+        ("MEASURE", "UNIT_MEASURE", MappingType.DERIVE, MappingStatus.CONFIRMED),
+        ("UNIT_MULT", "UNIT_MULT", MappingType.DERIVE, MappingStatus.CONFIRMED),
+        ("SOURCE_SYSTEM", "SOURCE", MappingType.DERIVE, MappingStatus.CONFIRMED),
     ],
 )
 def test_required_concept_mappings(
@@ -285,6 +288,7 @@ def test_required_concept_mappings(
         ("TRADE_FLOW", "TRADE_FLOW", "X", "EXPORT"),
         ("COMMODITY_1", "PRODUCT_SCHEME", "SITC4_TOTAL", "SITC4"),
         ("COMMODITY_1", "PRODUCT", "SITC4_TOTAL", "TOTAL"),
+        ("UNIT_MULT", "UNIT_MULT", "0", "0"),
     ],
 )
 def test_explicit_mvp_code_mappings(
@@ -428,10 +432,10 @@ def test_code_mapping_uniqueness_is_enforced(mapping_session: Session) -> None:
 def test_registry_contains_mapping_metadata_only(mapping_session: Session) -> None:
     assert mapping_session.scalar(
         select(func.count()).select_from(db.SdmxConceptMapping)
-    ) == 32
+    ) == 33
     assert mapping_session.scalar(
         select(func.count()).select_from(db.SdmxCodeMapping)
-    ) == 7
+    ) == 8
     assert mapping_session.scalar(select(func.count()).select_from(db.StatDataset)) == 0
     assert mapping_session.scalar(
         select(func.count()).select_from(db.TradeObservation)

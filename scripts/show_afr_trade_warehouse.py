@@ -39,7 +39,7 @@ def main() -> int:
                     db.AfrTradeObservation.target_key_hash,
                 )
                 .having(func.count() > 1)
-                .subquery()
+                .subquery() 
             )
         )
         print("Target: AFRSTAT:AFR_TRADE(1.0)")

@@ -15,6 +15,7 @@ IMPLEMENTATION_KEYS = frozenset(
         "MAP_PRODUCT_SCHEME",
         "MAP_PRODUCT",
         "MAP_UNIT",
+        "MAP_SOURCE",
     }
 )
 

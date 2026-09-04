@@ -14,7 +14,7 @@
     "purpose": "A deliberately compact target model for future harmonisation of African merchandise trade observations.",
     "exchange_format_status": "This JSON is an internal canonical definition, not an SDMX-ML exchange artefact.",
     "source_model": "UNSD:IMTS(1.2)",
-    "mapping_status": "No source-to-target observation or code mappings are implemented in Step 26A."
+    "mapping_status": "The versioned mapping registry controls source-to-target use; only confirmed mappings may populate this structure."
   },
   "dataflow": {
     "id": "AFR_TRADE",
@@ -185,7 +185,7 @@
         "source_concepts": ["MEASURE", "UNIT_MEASURE", "primaryValue semantics"],
         "representation": "String",
         "codelist": {"agency": "AFRSTAT", "id": "CL_UNIT_MEASURE", "version": "1.0"},
-        "notes": "The target can express USD trade value, but assigning the current source primaryValue is deferred until mapping evidence is approved."
+        "notes": "USD qualifies the supported Comtrade primary trade value after the mapping transformation verifies the evidenced CIF import-value path; quantity units never qualify that value."
       },
       {
         "position": 8,
